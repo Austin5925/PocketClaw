@@ -73,9 +73,7 @@ export function Onboarding() {
           {step === 2 && (
             <div>
               <h2 className="mb-1 text-lg font-semibold text-gray-900">输入 API Key</h2>
-              <p className="mb-4 text-sm text-gray-500">
-                从模型提供商网站获取你的 API Key
-              </p>
+              <p className="mb-4 text-sm text-gray-500">从模型提供商网站获取你的 API Key</p>
               <ApiKeyInput value={apiKey} onChange={setApiKey} />
               {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
               <a

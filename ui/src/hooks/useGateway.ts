@@ -75,38 +75,35 @@ export function useGateway(): UseGatewayReturn {
     };
   }, []);
 
-  const sendMessage = useCallback(
-    (content: string) => {
-      if (!content.trim() || !wsRef.current) return;
+  const sendMessage = useCallback((content: string) => {
+    if (!content.trim() || !wsRef.current) return;
 
-      const userMsg: ChatMessage = {
-        id: makeId(),
-        role: "user",
-        content: content.trim(),
-        timestamp: Date.now(),
-      };
+    const userMsg: ChatMessage = {
+      id: makeId(),
+      role: "user",
+      content: content.trim(),
+      timestamp: Date.now(),
+    };
 
-      const assistantId = makeId();
-      const assistantMsg: ChatMessage = {
-        id: assistantId,
-        role: "assistant",
-        content: "",
-        timestamp: Date.now(),
-        pending: true,
-      };
+    const assistantId = makeId();
+    const assistantMsg: ChatMessage = {
+      id: assistantId,
+      role: "assistant",
+      content: "",
+      timestamp: Date.now(),
+      pending: true,
+    };
 
-      pendingIdRef.current = assistantId;
-      setPending(true);
-      setMessages((prev) => [...prev, userMsg, assistantMsg]);
+    pendingIdRef.current = assistantId;
+    setPending(true);
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
 
-      wsRef.current.send({
-        type: "message",
-        content: content.trim(),
-        session: "main",
-      });
-    },
-    [],
-  );
+    wsRef.current.send({
+      type: "message",
+      content: content.trim(),
+      session: "main",
+    });
+  }, []);
 
   const clearMessages = useCallback(() => {
     setMessages([]);
