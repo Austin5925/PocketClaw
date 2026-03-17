@@ -1,0 +1,57 @@
+# === 开发内部文档（不公开） ===
+devdocs/
+
+# === Node.js ===
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# === 构建产物 ===
+ui/dist/
+portable/app/core/
+portable/app/runtime/
+portable/app/ui/dist/
+
+# === 环境与配置 ===
+.env
+.env.local
+.env.*.local
+
+# === OS 文件 ===
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.cursor/
+
+# === 测试与覆盖率 ===
+coverage/
+*.lcov
+
+# === 打包产物 ===
+release/
+*.tar.gz
+*.zip
+
+# === 临时文件 ===
+tmp/
+temp/
+*.log
+
+# === 用户数据（U 盘运行时生成） ===
+portable/data/.openclaw/credentials/
+portable/data/memory/*.md
+portable/data/backups/*
+!portable/data/.openclaw/openclaw.json
+!portable/data/memory/.gitkeep
+!portable/data/backups/.gitkeep
