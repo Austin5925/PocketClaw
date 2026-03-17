@@ -11,11 +11,8 @@ permissions:
   contents: write
 
 jobs:
-  check-version:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      should_release: ${{ steps.version.outputs.should_release }}
+  release:
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,58 +24,31 @@ jobs:
           VERSION=$(cat portable/version.txt | tr -d '[:space:]')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           if git tag -l "v$VERSION" | grep -q "v$VERSION"; then
-            echo "should_release=false" >> $GITHUB_OUTPUT
-            echo "Version v$VERSION already released, skipping."
+            echo "skip=true" >> $GITHUB_OUTPUT
           else
-            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
-  build:
-    needs: check-version
-    if: needs.check-version.outputs.should_release == 'true'
-    strategy:
-      matrix:
-        include:
-          - runner: macos-14
-            platform: mac-arm64
-            node_archive: node-v22.14.0-darwin-arm64
-            runtime_dir: node-darwin-arm64
-            launcher_name: PocketClaw-arm64
-            go_os: darwin
-            go_arch: arm64
-          - runner: macos-13
-            platform: mac-x64
-            node_archive: node-v22.14.0-darwin-x64
-            runtime_dir: node-darwin-x64
-            launcher_name: PocketClaw-x64
-            go_os: darwin
-            go_arch: amd64
-          - runner: windows-latest
-            platform: windows-x64
-            node_archive: node-v22.14.0-win-x64
-            runtime_dir: node-win-x64
-            launcher_name: 启动 PocketClaw.exe
-            go_os: windows
-            go_arch: amd64
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
+        if: steps.version.outputs.skip == 'false'
         with:
           version: 10
 
       - uses: actions/setup-node@v4
+        if: steps.version.outputs.skip == 'false'
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: ui/pnpm-lock.yaml
 
       - uses: actions/setup-go@v5
+        if: steps.version.outputs.skip == 'false'
         with:
           go-version: "1.24"
+          cache: false
 
       - name: Build UI
+        if: steps.version.outputs.skip == 'false'
         working-directory: ui
         run: |
           pnpm install
@@ -86,76 +56,67 @@ jobs:
           mkdir -p ../portable/app/ui/dist
           cp -R dist/* ../portable/app/ui/dist/
 
-      - name: Download Node.js runtime
-        shell: bash
+      - name: Download Node.js runtimes
+        if: steps.version.outputs.skip == 'false'
         run: |
+          NODE_VER="v22.14.0"
           mkdir -p portable/app/runtime
-          if [ "${{ matrix.go_os }}" = "windows" ]; then
-            curl -fsSL "https://nodejs.org/dist/v22.14.0/${{ matrix.node_archive }}.zip" -o node.zip
-            unzip -q node.zip
-            mv "${{ matrix.node_archive }}" "portable/app/runtime/${{ matrix.runtime_dir }}"
-          else
-            curl -fsSL "https://nodejs.org/dist/v22.14.0/${{ matrix.node_archive }}.tar.xz" -o node.tar.xz
-            tar -xf node.tar.xz
-            mv "${{ matrix.node_archive }}" "portable/app/runtime/${{ matrix.runtime_dir }}"
-          fi
+
+          curl -fsSL "https://nodejs.org/dist/$NODE_VER/node-$NODE_VER-darwin-arm64.tar.xz" | tar -xJ
+          mv "node-$NODE_VER-darwin-arm64" portable/app/runtime/node-darwin-arm64
+
+          curl -fsSL "https://nodejs.org/dist/$NODE_VER/node-$NODE_VER-darwin-x64.tar.xz" | tar -xJ
+          mv "node-$NODE_VER-darwin-x64" portable/app/runtime/node-darwin-x64
+
+          curl -fsSL "https://nodejs.org/dist/$NODE_VER/node-$NODE_VER-win-x64.zip" -o node-win.zip
+          unzip -q node-win.zip
+          mv "node-$NODE_VER-win-x64" portable/app/runtime/node-win-x64
+
+          echo "Runtimes downloaded:"
+          du -sh portable/app/runtime/*/
 
       - name: Install OpenClaw
-        shell: bash
+        if: steps.version.outputs.skip == 'false'
         run: |
           mkdir -p portable/app/core
           cd portable/app/core
           npm init -y
           npm install openclaw
+          echo "OpenClaw installed: $(du -sh node_modules/)"
 
-      - name: Build launcher
+      - name: Build launchers
+        if: steps.version.outputs.skip == 'false'
         working-directory: launcher
-        shell: bash
         run: |
-          if [ "${{ matrix.go_os }}" = "windows" ]; then
-            GOOS=${{ matrix.go_os }} GOARCH=${{ matrix.go_arch }} go build -ldflags="-s -w" -o "../portable/${{ matrix.launcher_name }}" main.go
-          else
-            GOOS=${{ matrix.go_os }} GOARCH=${{ matrix.go_arch }} go build -ldflags="-s -w" -o "../portable/启动 PocketClaw.app/Contents/MacOS/${{ matrix.launcher_name }}" main.go
-          fi
+          GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o "../portable/启动 PocketClaw.exe" main.go
+          GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "../portable/启动 PocketClaw.app/Contents/MacOS/PocketClaw-arm64" main.go
+          GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "../portable/启动 PocketClaw.app/Contents/MacOS/PocketClaw-x64" main.go
 
-      - name: Prepare .app bundle (Mac only)
-        if: matrix.go_os == 'darwin'
+          chmod +x "../portable/启动 PocketClaw.app/Contents/MacOS/launcher"
+          chmod +x "../portable/启动 PocketClaw.app/Contents/MacOS/PocketClaw-arm64"
+          chmod +x "../portable/启动 PocketClaw.app/Contents/MacOS/PocketClaw-x64"
+
+      - name: Create packages
+        if: steps.version.outputs.skip == 'false'
         run: |
-          chmod +x "portable/启动 PocketClaw.app/Contents/MacOS/launcher"
-          chmod +x "portable/启动 PocketClaw.app/Contents/MacOS/${{ matrix.launcher_name }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          EXCL="--exclude=portable/data/.openclaw/credentials --exclude=portable/data/memory/*.md --exclude=portable/data/backups/*"
 
-      - name: Create package
-        shell: bash
-        run: |
-          VERSION="${{ needs.check-version.outputs.version }}"
-          tar -czf "PocketClaw-v${VERSION}-${{ matrix.platform }}.tar.gz" \
-            --exclude='portable/data/.openclaw/credentials' \
-            --exclude='portable/data/memory/*.md' \
-            --exclude='portable/data/backups/*' \
-            portable/
+          # Full package: all runtimes + OpenClaw + UI + launchers
+          tar -czf "PocketClaw-v${VERSION}-full.tar.gz" $EXCL portable/
+          echo "Full package: $(du -h PocketClaw-v${VERSION}-full.tar.gz | cut -f1)"
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: package-${{ matrix.platform }}
-          path: PocketClaw-v*-${{ matrix.platform }}.tar.gz
-
-  release:
-    needs: [check-version, build]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: actions/download-artifact@v4
-        with:
-          merge-multiple: true
+          # Update package: UI + system scripts only (lightweight)
+          tar -czf "PocketClaw-v${VERSION}-update.tar.gz" \
+            -C portable app/ui/ system/ version.txt
+          echo "Update package: $(du -h PocketClaw-v${VERSION}-update.tar.gz | cut -f1)"
 
       - name: Create tag and release
+        if: steps.version.outputs.skip == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="v${{ needs.check-version.outputs.version }}"
+          VERSION="v${{ steps.version.outputs.version }}"
           git tag -a "$VERSION" -m "Release $VERSION"
           git push origin "$VERSION"
 
