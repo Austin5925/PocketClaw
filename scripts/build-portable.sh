@@ -29,8 +29,29 @@ if [ ! -d "$PORTABLE_DIR/app/core/node_modules" ]; then
     bash "$PORTABLE_DIR/system/setup.sh" openclaw
 fi
 
-# Step 4: Package
-log "Step 4: Packaging..."
+# Step 4: Build launchers
+log "Step 4: Building launchers..."
+if command -v go &>/dev/null; then
+    cd "$PROJECT_ROOT/launcher"
+
+    GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o "$PORTABLE_DIR/启动 PocketClaw.exe" main.go
+    log "Windows .exe built"
+
+    GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "$PORTABLE_DIR/启动 PocketClaw.app/Contents/MacOS/PocketClaw-arm64" main.go
+    log "Mac ARM64 binary built"
+
+    GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "$PORTABLE_DIR/启动 PocketClaw.app/Contents/MacOS/PocketClaw-x64" main.go
+    log "Mac x64 binary built"
+
+    chmod +x "$PORTABLE_DIR/启动 PocketClaw.app/Contents/MacOS/launcher"
+    chmod +x "$PORTABLE_DIR/启动 PocketClaw.app/Contents/MacOS/PocketClaw-arm64"
+    chmod +x "$PORTABLE_DIR/启动 PocketClaw.app/Contents/MacOS/PocketClaw-x64"
+else
+    log "WARNING: Go not found, skipping launcher build"
+fi
+
+# Step 5: Package
+log "Step 5: Packaging..."
 mkdir -p "$RELEASE_DIR"
 
 FULL_PACKAGE="$RELEASE_DIR/PocketClaw-v${VERSION}-full.tar.gz"

@@ -15,7 +15,7 @@
 - **Windows 用户** → 双击 `启动 PocketClaw.exe`
 - **Mac 用户** → 双击 `启动 PocketClaw.app`
 
-> 首次启动会自动下载必要组件（约 2.3GB，需联网），请耐心等待 5-15 分钟。之后每次启动只需几秒。
+> **Mac 用户注意**：如果提示"无法打开"，请右键点击文件，选择"打开"，然后在弹窗中再点一次"打开"。这是 macOS 的安全提示，只需操作一次。
 
 ### 第二步：开始使用
 
@@ -30,7 +30,7 @@
 ## 特性
 
 - **零安装** — 不需要安装任何软件，不需要打开命令行
-- **双击即用** — 一个文件启动一切
+- **双击即用** — 一个文件启动一切，开箱即用，无需等待
 - **小白友好** — 简洁中文界面，引导式配置
 - **多模型支持** — DeepSeek、Kimi、通义千问、Claude、GPT 等
 - **跨平台** — macOS (Apple Silicon / Intel) + Windows 10/11
@@ -43,8 +43,8 @@
 - **macOS**: Apple Silicon (M1/M2/M3/M4) 或 Intel, macOS 12 以上
 - **Windows**: Windows 10 或 11, 64 位
 - **内存**: 2GB 以上（推荐 4GB）
-- **U 盘**: 4GB 以上（推荐 USB 3.0 高速 U 盘）
-- **网络**: 首次启动和聊天时需要联网
+- **U 盘**: 2GB 以上（推荐 4GB+ USB 3.0 高速 U 盘）
+- **网络**: 聊天时需要联网（调用云端 AI 模型）
 
 ## 遇到问题？
 
@@ -54,15 +54,6 @@
 
 ## 面向开发者
 
-```bash
-cd ui && pnpm install   # 安装依赖
-pnpm dev                # 开发模式
-pnpm typecheck          # 类型检查
-pnpm test               # 运行测试
-pnpm build              # 构建
-pnpm lint               # 代码检查
-```
-
 详见 [贡献指南](docs/CONTRIBUTING.md)。
 
 ## 技术栈
@@ -71,6 +62,7 @@ pnpm lint               # 代码检查
 |---|---|
 | 运行时 | Node.js 22 (便携二进制) |
 | AI 核心 | OpenClaw (MIT) |
+| 启动器 | Go 编译（.exe / .app） |
 | 简约 UI | React + TypeScript + Tailwind CSS |
 | 构建 | Vite |
 | 通信 | WebSocket |

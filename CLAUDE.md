@@ -68,7 +68,9 @@ cd ui && pnpm lint && pnpm test && pnpm build
 - **用户永远不接触命令行** — 所有操作通过双击文件或 Web UI 完成
 - **首次启动自动初始化** — 启动脚本检测到缺少运行时/OpenClaw 时自动运行 setup
 - **所有提示使用中文** — 启动窗口、错误信息、UI 界面全部中文
-- **最终交付形式** — Windows: .exe 启动器；Mac: .app 启动器（包裹 shell 脚本）
+- **交付形式** — Windows: `启动 PocketClaw.exe`（Go 编译）；Mac: `启动 PocketClaw.app`（.app bundle）
+- **启动器源码** — `launcher/main.go`，交叉编译：`GOOS=windows GOARCH=amd64 go build`
+- **自动发布** — 修改 `portable/version.txt` 并 push 到 master，GitHub Actions 自动打 tag + 发布 Release
 - **面向对象** — 非技术背景用户（电脑小白），不能假设用户知道任何技术概念
 
 ## 注意事项

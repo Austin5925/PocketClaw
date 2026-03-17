@@ -9,9 +9,6 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ui
     steps:
       - uses: actions/checkout@v4
 
@@ -25,19 +22,37 @@ jobs:
           cache: pnpm
           cache-dependency-path: ui/pnpm-lock.yaml
 
-      - run: pnpm install
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Install UI dependencies
+        working-directory: ui
+        run: pnpm install
 
       - name: Lint
+        working-directory: ui
         run: pnpm lint
 
       - name: Format check
+        working-directory: ui
         run: pnpm format
 
       - name: Type check
+        working-directory: ui
         run: pnpm typecheck
 
       - name: Test
+        working-directory: ui
         run: pnpm test
 
-      - name: Build
+      - name: Build UI
+        working-directory: ui
         run: pnpm build
+
+      - name: Build launchers
+        working-directory: launcher
+        run: |
+          GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o "../portable/启动 PocketClaw.exe" main.go
+          GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "../portable/PocketClaw-arm64" main.go
+          GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "../portable/PocketClaw-x64" main.go

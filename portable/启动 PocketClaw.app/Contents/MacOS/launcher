@@ -1,0 +1,7 @@
+#!/bin/bash
+DIR="$(dirname "$0")"
+if [ "$(uname -m)" = "arm64" ]; then
+    exec "$DIR/PocketClaw-arm64"
+else
+    exec "$DIR/PocketClaw-x64"
+fi

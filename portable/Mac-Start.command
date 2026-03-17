@@ -21,22 +21,28 @@ detect_node() {
     fi
 }
 
-auto_setup() {
+verify_files() {
     detect_node
 
-    if [ ! -f "$NODE_BIN" ] || [ ! -d "$APP_DIR/core/node_modules" ]; then
-        log "首次启动，正在自动初始化（需要联网，约 5-15 分钟）..."
-        log "请不要关闭此窗口。"
-        echo ""
-        bash "$SYSTEM_DIR/setup.sh"
-        echo ""
-        log "初始化完成！"
-        detect_node
+    if [ ! -f "$NODE_BIN" ]; then
+        error "运行环境不完整：Node.js 未找到。"
+        error "请重新获取 PocketClaw 完整版本。"
+        echo "按 Enter 键退出..."
+        read -r
+        exit 1
     fi
 
-    if [ ! -f "$NODE_BIN" ]; then
-        error "Node.js 运行时未找到，初始化可能失败。"
-        error "请检查网络连接后重试。"
+    if [ ! -d "$APP_DIR/core/node_modules" ]; then
+        error "运行环境不完整：AI 引擎未找到。"
+        error "请重新获取 PocketClaw 完整版本。"
+        echo "按 Enter 键退出..."
+        read -r
+        exit 1
+    fi
+
+    if [ ! -f "$APP_DIR/ui/dist/index.html" ]; then
+        error "运行环境不完整：界面文件未找到。"
+        error "请重新获取 PocketClaw 完整版本。"
         echo "按 Enter 键退出..."
         read -r
         exit 1
@@ -92,7 +98,7 @@ main() {
     echo ""
     log "版本: $(cat "$SCRIPT_DIR/version.txt" 2>/dev/null || echo '未知')"
 
-    auto_setup
+    verify_files
     start_gateway
     start_ui
 

@@ -22,27 +22,20 @@ echo.
 for /f "usebackq tokens=*" %%v in ("%SCRIPT_DIR%version.txt") do set "VERSION=%%v"
 echo [PocketClaw] 版本: %VERSION%
 
-:: 自动检测并执行首次初始化
-if not exist "%NODE_BIN%" goto :auto_setup
-if not exist "%OPENCLAW_BIN%" goto :auto_setup
-goto :start
-
-:auto_setup
-echo [PocketClaw] 首次启动，正在自动初始化（需要联网，约 5-15 分钟）...
-echo [PocketClaw] 请不要关闭此窗口。
-echo.
-call "%SYSTEM_DIR%\setup.bat"
-echo.
-echo [PocketClaw] 初始化完成！
-echo.
-
+:: 验证运行环境
 if not exist "%NODE_BIN%" (
-    echo [PocketClaw ERROR] 初始化可能失败，请检查网络连接后重试。
+    echo [PocketClaw ERROR] 运行环境不完整：Node.js 未找到。
+    echo [PocketClaw ERROR] 请重新获取 PocketClaw 完整版本。
+    pause
+    exit /b 1
+)
+if not exist "%OPENCLAW_BIN%" (
+    echo [PocketClaw ERROR] 运行环境不完整：AI 引擎未找到。
+    echo [PocketClaw ERROR] 请重新获取 PocketClaw 完整版本。
     pause
     exit /b 1
 )
 
-:start
 set "PATH=%APP_DIR%\runtime\node-win-x64;%PATH%"
 set "OPENCLAW_HOME=%DATA_DIR%\.openclaw"
 
