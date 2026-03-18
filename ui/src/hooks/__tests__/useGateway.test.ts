@@ -35,14 +35,32 @@ class MockWebSocket {
   simulateMessage(data: Record<string, unknown>) {
     this.onmessage?.({ data: JSON.stringify(data) });
   }
+
+  /** Simulate the OpenClaw challenge-response handshake */
+  simulateHandshake() {
+    this.simulateOpen();
+    // Gateway sends challenge
+    this.simulateMessage({
+      type: "event",
+      event: "connect.challenge",
+      payload: { nonce: "test-nonce-123", ts: Date.now() },
+    });
+    // Client should have sent a connect frame — simulate hello-ok response
+    this.simulateMessage({
+      type: "res",
+      id: "test-id",
+      ok: true,
+      payload: { type: "hello-ok", protocol: 3 },
+    });
+  }
 }
 
-// Also mock the OPEN/CLOSED constants on instances
 Object.defineProperty(MockWebSocket.prototype, "OPEN", { value: 1 });
 
 beforeEach(() => {
   wsInstances = [];
   vi.stubGlobal("WebSocket", MockWebSocket);
+  vi.stubGlobal("crypto", { randomUUID: () => "test-uuid" });
 });
 
 afterEach(() => {
@@ -57,17 +75,21 @@ function getLatestWs(): MockWebSocket {
 }
 
 describe("useGateway", () => {
-  it("starts disconnected then connects", async () => {
+  it("starts disconnected then connects after handshake", async () => {
     const { result } = renderHook(() => useGateway());
 
     expect(result.current.connected).toBe(false);
 
     const ws = getLatestWs();
     act(() => {
-      ws.simulateOpen();
+      ws.simulateHandshake();
     });
 
     expect(result.current.connected).toBe(true);
+    // Should have sent a connect frame
+    expect(ws.sent.length).toBeGreaterThanOrEqual(1);
+    const connectFrame = JSON.parse(ws.sent[0] as string);
+    expect(connectFrame.method).toBe("connect");
   });
 
   it("sends a message and creates placeholder", () => {
@@ -75,7 +97,7 @@ describe("useGateway", () => {
 
     const ws = getLatestWs();
     act(() => {
-      ws.simulateOpen();
+      ws.simulateHandshake();
     });
 
     act(() => {
@@ -88,7 +110,6 @@ describe("useGateway", () => {
     expect(result.current.messages[1]?.role).toBe("assistant");
     expect(result.current.messages[1]?.pending).toBe(true);
     expect(result.current.pending).toBe(true);
-    expect(ws.sent).toHaveLength(1);
   });
 
   it("clears messages", () => {
@@ -96,7 +117,7 @@ describe("useGateway", () => {
 
     const ws = getLatestWs();
     act(() => {
-      ws.simulateOpen();
+      ws.simulateHandshake();
     });
 
     act(() => {
@@ -118,7 +139,7 @@ describe("useGateway", () => {
 
     const ws = getLatestWs();
     act(() => {
-      ws.simulateOpen();
+      ws.simulateHandshake();
     });
 
     act(() => {

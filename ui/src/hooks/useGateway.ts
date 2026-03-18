@@ -24,9 +24,7 @@ export function useGateway(): UseGatewayReturn {
   const pendingIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    const ws = new GatewayWebSocket(wsUrl);
+    const ws = new GatewayWebSocket();
     wsRef.current = ws;
 
     const unsubStatus = ws.onStatus((isConnected, error) => {
@@ -39,6 +37,55 @@ export function useGateway(): UseGatewayReturn {
     });
 
     const unsubMessage = ws.onMessage((data: WebSocketMessage) => {
+      // Handle OpenClaw event messages (chat responses)
+      if (data.type === "event" && data.event === "agent") {
+        const payload = data.payload as Record<string, unknown> | undefined;
+        const text = (payload?.text as string) ?? (payload?.content as string) ?? "";
+        const done = payload?.done === true || payload?.final === true;
+
+        if (text && pendingIdRef.current) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === pendingIdRef.current ? { ...m, content: m.content + text } : m,
+            ),
+          );
+        }
+
+        if (done && pendingIdRef.current) {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === pendingIdRef.current ? { ...m, pending: false } : m)),
+          );
+          pendingIdRef.current = null;
+          setPending(false);
+        }
+        return;
+      }
+
+      // Handle OpenClaw RPC responses
+      if (data.type === "res") {
+        const ok = (data as Record<string, unknown>).ok as boolean;
+        if (!ok && pendingIdRef.current) {
+          const payload = data.payload as Record<string, unknown> | undefined;
+          const errMsg = (payload?.message as string) ?? "请求失败";
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: makeId(),
+              role: "system",
+              content: `Error: ${errMsg}`,
+              timestamp: Date.now(),
+            },
+          ]);
+          setMessages((prev) =>
+            prev.map((m) => (m.id === pendingIdRef.current ? { ...m, pending: false } : m)),
+          );
+          pendingIdRef.current = null;
+          setPending(false);
+        }
+        return;
+      }
+
+      // Legacy format fallback
       if (data.type === "text" || data.type === "message") {
         const content = typeof data.content === "string" ? data.content : "";
         if (pendingIdRef.current) {
@@ -57,18 +104,6 @@ export function useGateway(): UseGatewayReturn {
           );
           pendingIdRef.current = null;
           setPending(false);
-        }
-
-        if (data.type === "error" && typeof data.content === "string") {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: makeId(),
-              role: "system",
-              content: `Error: ${data.content}`,
-              timestamp: Date.now(),
-            },
-          ]);
         }
       }
     });
@@ -105,10 +140,9 @@ export function useGateway(): UseGatewayReturn {
     setPending(true);
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
 
-    wsRef.current.send({
-      type: "message",
-      content: content.trim(),
-      session: "main",
+    // Send via OpenClaw RPC protocol
+    wsRef.current.sendRpc("agent", {
+      message: content.trim(),
     });
   }, []);
 

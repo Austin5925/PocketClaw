@@ -4,69 +4,119 @@ type StatusHandler = (connected: boolean, error?: string) => void;
 export interface WebSocketMessage {
   type: string;
   content?: string;
-  session?: string;
+  event?: string;
+  method?: string;
+  payload?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
+const GATEWAY_WS_URL = "ws://localhost:18789/";
+const GATEWAY_TOKEN = "pocketclaw-local";
+
 export class GatewayWebSocket {
   private ws: WebSocket | null = null;
-  private url: string;
   private messageHandlers: Set<MessageHandler> = new Set();
   private statusHandlers: Set<StatusHandler> = new Set();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 10;
+  private maxReconnectAttempts = 5;
   private intentionallyClosed = false;
-  private consecutiveFailures = 0;
-
-  constructor(url: string) {
-    this.url = url;
-  }
+  private handshakeComplete = false;
 
   connect(): void {
     if (this.ws?.readyState === WebSocket.OPEN) return;
     this.intentionallyClosed = false;
+    this.handshakeComplete = false;
 
     try {
-      this.ws = new WebSocket(this.url);
+      this.ws = new WebSocket(GATEWAY_WS_URL);
 
       this.ws.onopen = () => {
-        this.reconnectAttempts = 0;
-        this.consecutiveFailures = 0;
-        this.notifyStatus(true);
+        // Don't notify connected yet — wait for hello-ok after challenge-response
       };
 
       this.ws.onmessage = (event) => {
+        let data: WebSocketMessage;
         try {
-          const data = JSON.parse(String(event.data)) as WebSocketMessage;
-          this.messageHandlers.forEach((handler) => handler(data));
+          data = JSON.parse(String(event.data)) as WebSocketMessage;
         } catch {
-          // ignore non-JSON messages
+          return;
+        }
+
+        // Step 1: Receive challenge, send connect frame
+        if (data.type === "event" && data.event === "connect.challenge") {
+          const nonce = (data.payload as Record<string, unknown>)?.nonce as string;
+          this.sendConnectFrame(nonce);
+          return;
+        }
+
+        // Step 2: Receive hello-ok, connection established
+        if (
+          data.type === "res" &&
+          (data.payload as Record<string, unknown>)?.type === "hello-ok"
+        ) {
+          this.handshakeComplete = true;
+          this.reconnectAttempts = 0;
+          this.notifyStatus(true);
+          return;
+        }
+
+        // Step 3: Handle auth errors
+        if (data.type === "res" && !(data as Record<string, unknown>).ok) {
+          this.notifyStatus(false, "Gateway 认证失败");
+          return;
+        }
+
+        // Forward other messages to handlers
+        if (this.handshakeComplete) {
+          this.messageHandlers.forEach((handler) => handler(data));
         }
       };
 
-      this.ws.onclose = (event) => {
-        this.consecutiveFailures++;
-        const isAuthError = event.code === 1008 || event.code === 4401;
-
-        if (isAuthError || this.consecutiveFailures >= 3) {
-          this.notifyStatus(false, "连接被拒绝，请检查 Gateway 配置");
+      this.ws.onclose = () => {
+        if (this.handshakeComplete) {
+          this.notifyStatus(false, "连接已断开");
         } else {
-          this.notifyStatus(false);
+          this.notifyStatus(false, "Gateway 连接失败");
         }
+        this.handshakeComplete = false;
 
-        if (!this.intentionallyClosed && !isAuthError) {
+        if (!this.intentionallyClosed) {
           this.scheduleReconnect();
         }
       };
 
       this.ws.onerror = () => {
-        // onclose will fire after this, so don't notify here
+        // onclose fires after this
       };
     } catch {
-      this.notifyStatus(false);
-      this.scheduleReconnect();
+      this.notifyStatus(false, "无法连接到 Gateway");
     }
+  }
+
+  private sendConnectFrame(nonce: string): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+    const frame = {
+      type: "req",
+      id: crypto.randomUUID(),
+      method: "connect",
+      params: {
+        minProtocol: 3,
+        maxProtocol: 3,
+        auth: { token: GATEWAY_TOKEN },
+        client: {
+          id: "pocketclaw",
+          version: "1.0",
+          mode: "webchat",
+          platform: navigator.platform,
+        },
+        device: { nonce },
+        locale: "zh-CN",
+      },
+    };
+
+    this.ws.send(JSON.stringify(frame));
   }
 
   disconnect(): void {
@@ -82,8 +132,21 @@ export class GatewayWebSocket {
   }
 
   send(message: WebSocketMessage): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    if (this.ws?.readyState === WebSocket.OPEN && this.handshakeComplete) {
       this.ws.send(JSON.stringify(message));
+    }
+  }
+
+  sendRpc(method: string, params: Record<string, unknown>): void {
+    if (this.ws?.readyState === WebSocket.OPEN && this.handshakeComplete) {
+      this.ws.send(
+        JSON.stringify({
+          type: "req",
+          id: crypto.randomUUID(),
+          method,
+          params,
+        }),
+      );
     }
   }
 
@@ -98,7 +161,7 @@ export class GatewayWebSocket {
   }
 
   get isConnected(): boolean {
-    return this.ws?.readyState === WebSocket.OPEN;
+    return this.ws?.readyState === WebSocket.OPEN && this.handshakeComplete;
   }
 
   private notifyStatus(connected: boolean, error?: string): void {

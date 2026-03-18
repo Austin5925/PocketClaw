@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { StatusCard } from "../components/StatusCard";
 import { useConfig } from "../hooks/useConfig";
-import { checkHealth } from "../utils/config";
+import { useGateway } from "../hooks/useGateway";
 
 export function Dashboard() {
   const navigate = useNavigate();
   const { config, loading, isConfigured } = useConfig();
-  const [gatewayStatus, setGatewayStatus] = useState<"online" | "offline">("offline");
+  const { connected, connectionError } = useGateway();
   const [showApiKeyAlert, setShowApiKeyAlert] = useState(false);
 
   useEffect(() => {
@@ -16,32 +16,17 @@ export function Dashboard() {
     }
   }, [loading, isConfigured, navigate]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const check = async () => {
-      try {
-        const health = await checkHealth();
-        if (!cancelled) {
-          setGatewayStatus(health.gateway === "ok" ? "online" : "offline");
-        }
-      } catch {
-        if (!cancelled) setGatewayStatus("offline");
-      }
-    };
-
-    void check();
-    const interval = setInterval(() => void check(), 10000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, []);
-
   const modelName = config?.agent?.model?.split("/").pop() ?? "未配置";
   const providerId = config?.agent?.model?.split("/")[0] ?? "";
   const providerConfig = config?.[providerId] as Record<string, unknown> | undefined;
   const hasApiKey = Boolean(providerConfig?.apiKey);
+
+  const gatewayLabel = connected ? "已连接" : connectionError || "连接中...";
+  const gatewayStatus: "online" | "offline" | "warning" = connected
+    ? "online"
+    : connectionError
+      ? "offline"
+      : "warning";
 
   const handleChatClick = (e: React.MouseEvent) => {
     if (!hasApiKey) {
@@ -91,8 +76,8 @@ export function Dashboard() {
           </Link>
           <StatusCard
             icon="💬"
-            label="Gateway 服务"
-            value={gatewayStatus === "online" ? "已启动" : "未启动"}
+            label="Gateway 状态"
+            value={gatewayLabel}
             status={gatewayStatus}
           />
         </div>
