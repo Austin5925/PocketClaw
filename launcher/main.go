@@ -30,50 +30,50 @@ func main() {
 	setupLogging()
 	defer logFile.Close()
 
-	logMsg("PocketClaw starting...")
-	logMsg("version: " + readVersion())
-	logMsg("workdir: " + baseDir)
+	logMsg("PocketClaw 启动中...")
+	logMsg("版本: " + readVersion())
+	logMsg("工作目录: " + baseDir)
 
 	nodeBin := detectNode()
 	if nodeBin == "" {
-		showError("Incomplete: Node.js not found.\nPlease re-download PocketClaw.")
+		showError("运行环境不完整：Node.js 未找到。\n请重新获取 PocketClaw 完整版本。")
 		return
 	}
 	logMsg("Node.js: " + nodeBin)
 
 	openclawEntry := detectOpenClawEntry()
 	if openclawEntry == "" {
-		showError("Incomplete: AI engine not found.\nPlease re-download PocketClaw.")
+		showError("运行环境不完整：AI 引擎未找到。\n请重新获取 PocketClaw 完整版本。")
 		return
 	}
 	logMsg("OpenClaw: " + openclawEntry)
 
 	if !fileExists(filepath.Join(baseDir, "app", "ui", "dist", "index.html")) {
-		showError("Incomplete: UI files not found.\nPlease re-download PocketClaw.")
+		showError("运行环境不完整：界面文件未找到。\n请重新获取 PocketClaw 完整版本。")
 		return
 	}
 
 	serverJs := filepath.Join(baseDir, "system", "server.js")
 	if !fileExists(serverJs) {
-		showError("Incomplete: server script not found.\nPlease re-download PocketClaw.")
+		showError("运行环境不完整：服务脚本未找到。\n请重新获取 PocketClaw 完整版本。")
 		return
 	}
 
 	os.Setenv("PATH", filepath.Dir(nodeBin)+string(os.PathListSeparator)+os.Getenv("PATH"))
 	os.Setenv("OPENCLAW_HOME", filepath.Join(baseDir, "data", ".openclaw"))
 
-	logMsg("syncing config...")
+	logMsg("正在同步配置...")
 	syncConfigToOpenClaw()
 	setProviderEnvVars()
 	writeAuthProfiles()
 
-	logMsg("starting AI engine...")
+	logMsg("正在启动 AI 引擎...")
 	gatewayCmd := exec.Command(nodeBin, openclawEntry, "gateway", "--port", gatewayPort, "--allow-unconfigured")
 	gatewayCmd.Dir = baseDir
 	gatewayCmd.Stdout = logFile
 	gatewayCmd.Stderr = logFile
 	if err := gatewayCmd.Start(); err != nil {
-		showError("AI engine failed to start: " + err.Error())
+		showError("AI 引擎启动失败: " + err.Error())
 		return
 	}
 
@@ -82,13 +82,13 @@ func main() {
 		gatewayExited <- gatewayCmd.Wait()
 	}()
 
-	logMsg("waiting for AI engine...")
+	logMsg("等待 AI 引擎就绪...")
 	healthy := false
 	client := &http.Client{Timeout: 2 * time.Second}
 	for elapsed := 0; ; elapsed++ {
 		select {
 		case err := <-gatewayExited:
-			errMsg := "AI engine exited unexpectedly"
+			errMsg := "AI 引擎异常退出"
 			if err != nil {
 				errMsg += ": " + err.Error()
 			}
@@ -108,7 +108,7 @@ func main() {
 		}
 
 		if elapsed > 0 && elapsed%5 == 0 {
-			logMsg(fmt.Sprintf("still loading... (%d seconds)", elapsed))
+			logMsg(fmt.Sprintf("仍在加载中...（已等待 %d 秒）", elapsed))
 		}
 		time.Sleep(time.Second)
 	}
@@ -116,15 +116,15 @@ func main() {
 	if !healthy {
 		return
 	}
-	logMsg("AI engine ready")
+	logMsg("AI 引擎已启动")
 
-	logMsg("starting UI server...")
+	logMsg("正在启动界面...")
 	uiCmd := exec.Command(nodeBin, serverJs)
 	uiCmd.Dir = baseDir
 	uiCmd.Stdout = logFile
 	uiCmd.Stderr = logFile
 	if err := uiCmd.Start(); err != nil {
-		showError("UI server failed to start: " + err.Error())
+		showError("界面启动失败: " + err.Error())
 		if gatewayCmd.Process != nil {
 			gatewayCmd.Process.Kill()
 		}
@@ -133,9 +133,10 @@ func main() {
 
 	time.Sleep(time.Second)
 
-	logMsg("opening browser...")
+	logMsg("正在打开浏览器...")
 	openBrowser("http://localhost:" + uiPort)
-	logMsg("PocketClaw started! http://localhost:" + uiPort)
+	logMsg("PocketClaw 已启动！")
+	logMsg("如果浏览器没有自动打开，请手动访问: http://localhost:" + uiPort)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -145,20 +146,20 @@ func main() {
 	case <-gatewayExited:
 	}
 
-	logMsg("shutting down...")
+	logMsg("正在关闭...")
 	if gatewayCmd.Process != nil {
 		gatewayCmd.Process.Kill()
 	}
 	if uiCmd.Process != nil {
 		uiCmd.Process.Kill()
 	}
-	logMsg("exited")
+	logMsg("已退出")
 }
 
 func resolveBaseDir() {
 	exe, err := os.Executable()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "cannot determine launcher path")
+		fmt.Fprintln(os.Stderr, "无法确定启动器位置")
 		os.Exit(1)
 	}
 	dir := filepath.Dir(exe)
@@ -192,7 +193,7 @@ func logMsg(msg string) {
 func readVersion() string {
 	data, err := os.ReadFile(filepath.Join(baseDir, "version.txt"))
 	if err != nil {
-		return "unknown"
+		return "未知"
 	}
 	return strings.TrimSpace(string(data))
 }
@@ -223,7 +224,7 @@ func detectOpenClawEntry() string {
 
 	data, err := os.ReadFile(pkgPath)
 	if err != nil {
-		logMsg("failed to read openclaw/package.json: " + err.Error())
+		logMsg("无法读取 openclaw/package.json: " + err.Error())
 		return ""
 	}
 
@@ -232,7 +233,7 @@ func detectOpenClawEntry() string {
 		Main string      `json:"main"`
 	}
 	if err := json.Unmarshal(data, &pkg); err != nil {
-		logMsg("failed to parse openclaw/package.json: " + err.Error())
+		logMsg("无法解析 openclaw/package.json: " + err.Error())
 		return ""
 	}
 
@@ -272,7 +273,7 @@ func detectOpenClawEntry() string {
 		}
 	}
 
-	logMsg("cannot locate OpenClaw entry file")
+	logMsg("无法定位 OpenClaw 入口文件")
 	return ""
 }
 
@@ -283,13 +284,13 @@ func syncConfigToOpenClaw() {
 	ourConfigPath := filepath.Join(baseDir, "data", ".openclaw", "openclaw.json")
 	ourData, err := os.ReadFile(ourConfigPath)
 	if err != nil {
-		logMsg("failed to read config: " + err.Error())
+		logMsg("无法读取配置文件: " + err.Error())
 		return
 	}
 
 	var ourConfig map[string]interface{}
 	if err := json.Unmarshal(ourData, &ourConfig); err != nil {
-		logMsg("failed to parse config: " + err.Error())
+		logMsg("无法解析配置文件: " + err.Error())
 		return
 	}
 
@@ -375,14 +376,14 @@ func syncConfigToOpenClaw() {
 	os.MkdirAll(internalDir, 0755)
 	outData, err := json.MarshalIndent(internalConfig, "", "  ")
 	if err != nil {
-		logMsg("failed to serialize config: " + err.Error())
+		logMsg("无法序列化配置: " + err.Error())
 		return
 	}
 	if err := os.WriteFile(internalConfigPath, outData, 0644); err != nil {
-		logMsg("failed to write internal config: " + err.Error())
+		logMsg("无法写入内部配置: " + err.Error())
 		return
 	}
-	logMsg("config synced")
+	logMsg("配置同步完成")
 }
 
 // setProviderEnvVars sets API keys as env vars so OpenClaw's agent auth
@@ -461,7 +462,7 @@ func writeAuthProfiles() {
 	}
 	authPath := filepath.Join(agentDir, "auth-profiles.json")
 	os.WriteFile(authPath, outData, 0644)
-	logMsg("auth-profiles.json written")
+	logMsg("auth-profiles.json 已写入")
 }
 
 func fileExists(path string) bool {
@@ -483,10 +484,10 @@ func showError(msg string) {
 	switch runtime.GOOS {
 	case "darwin":
 		exec.Command("osascript", "-e",
-			fmt.Sprintf(`display dialog "%s" buttons {"OK"} with title "PocketClaw" with icon stop`, msg)).Run()
+			fmt.Sprintf(`display dialog "%s" buttons {"确定"} with title "PocketClaw" with icon stop`, msg)).Run()
 	case "windows":
 		fmt.Fprintf(os.Stderr, "\n[PocketClaw ERROR] %s\n", msg)
-		fmt.Println("Press Enter to exit...")
+		fmt.Println("按 Enter 键退出...")
 		fmt.Scanln()
 	}
 }
@@ -510,16 +511,16 @@ func showErrorWithLog(msg string) {
 	switch runtime.GOOS {
 	case "darwin":
 		exec.Command("osascript", "-e",
-			fmt.Sprintf(`display dialog "%s" buttons {"OK"} with title "PocketClaw" with icon stop`, msg)).Run()
+			fmt.Sprintf(`display dialog "%s" buttons {"确定"} with title "PocketClaw" with icon stop`, msg)).Run()
 	case "windows":
 		fmt.Fprintf(os.Stderr, "\n[PocketClaw ERROR] %s\n", msg)
 		if logTail != "" {
-			fmt.Println("\n--- Log (for troubleshooting) ---")
+			fmt.Println("\n--- 日志（用于排查问题）---")
 			fmt.Println(logTail)
-			fmt.Println("--- End of log ---")
-			fmt.Printf("\nFull log: %s\n", logPath)
+			fmt.Println("--- 日志结束 ---")
+			fmt.Printf("\n完整日志: %s\n", logPath)
 		}
-		fmt.Println("\nPress Enter to exit...")
+		fmt.Println("\n按 Enter 键退出...")
 		fmt.Scanln()
 	}
 }

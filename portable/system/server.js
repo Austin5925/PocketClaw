@@ -28,6 +28,18 @@ const MIME_TYPES = {
   ".ttf": "font/ttf",
 };
 
+const KNOWN_PROVIDERS = [
+  "minimax",
+  "deepseek",
+  "kimi",
+  "moonshot",
+  "qwen",
+  "anthropic",
+  "openai",
+  "glm",
+  "zhipu",
+];
+
 function serveStatic(res, filePath) {
   const ext = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES[ext] || "application/octet-stream";
@@ -40,6 +52,85 @@ function serveStatic(res, filePath) {
     return false;
   }
   return true;
+}
+
+/**
+ * Write auth-profiles.json for the agent auth store.
+ * Format verified from OpenClaw source: src/agents/auth-profiles/types.ts
+ */
+function syncAuthProfiles(config) {
+  const profiles = {};
+  for (const provider of KNOWN_PROVIDERS) {
+    const apiKey = config[provider]?.apiKey;
+    if (apiKey) {
+      profiles[`${provider}:default`] = {
+        type: "api_key",
+        provider,
+        key: apiKey,
+      };
+    }
+  }
+
+  if (Object.keys(profiles).length === 0) return;
+
+  const store = { version: 1, profiles };
+  const agentDir = path.join(
+    DATA_DIR,
+    ".openclaw",
+    ".openclaw",
+    "agents",
+    "main",
+    "agent",
+  );
+  fs.mkdirSync(agentDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(agentDir, "auth-profiles.json"),
+    JSON.stringify(store, null, 2),
+    "utf-8",
+  );
+}
+
+/**
+ * Sync API keys and model to OpenClaw's internal config.
+ * Writes to models.providers.<id>.apiKey and agents.defaults.model.
+ */
+function syncInternalConfig(config) {
+  const internalDir = path.join(DATA_DIR, ".openclaw", ".openclaw");
+  const internalPath = path.join(internalDir, "openclaw.json");
+
+  let internal = {};
+  try {
+    internal = JSON.parse(fs.readFileSync(internalPath, "utf-8"));
+  } catch {
+    // File doesn't exist yet, start fresh
+  }
+
+  // Sync model
+  const model = config.agent?.model;
+  if (model) {
+    if (!internal.agents) internal.agents = {};
+    if (!internal.agents.defaults) internal.agents.defaults = {};
+    internal.agents.defaults.model = model;
+  }
+
+  // Sync API keys to models.providers
+  if (!internal.models) internal.models = {};
+  if (!internal.models.providers) internal.models.providers = {};
+  for (const provider of KNOWN_PROVIDERS) {
+    const apiKey = config[provider]?.apiKey;
+    if (apiKey) {
+      if (!internal.models.providers[provider])
+        internal.models.providers[provider] = {};
+      internal.models.providers[provider].apiKey = apiKey;
+    }
+  }
+
+  fs.mkdirSync(internalDir, { recursive: true });
+  fs.writeFileSync(
+    internalPath,
+    JSON.stringify(internal, null, 2),
+    "utf-8",
+  );
 }
 
 function handleApiConfig(req, res) {
@@ -62,9 +153,14 @@ function handleApiConfig(req, res) {
     req.on("data", (chunk) => (body += chunk));
     req.on("end", () => {
       try {
-        JSON.parse(body);
+        const parsed = JSON.parse(body);
         fs.mkdirSync(path.dirname(configPath), { recursive: true });
         fs.writeFileSync(configPath, body, "utf-8");
+
+        // Sync to OpenClaw auth store and internal config
+        syncAuthProfiles(parsed);
+        syncInternalConfig(parsed);
+
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: true }));
       } catch {
@@ -140,5 +236,7 @@ server.on("upgrade", (req, socket, head) => {
 
 server.listen(UI_PORT, () => {
   console.log(`[PocketClaw UI] Server running at http://localhost:${UI_PORT}`);
-  console.log(`[PocketClaw UI] Gateway proxy: ws://localhost:${UI_PORT}/ws -> ws://${GATEWAY_HOST}:${GATEWAY_PORT}`);
+  console.log(
+    `[PocketClaw UI] Gateway proxy: ws://localhost:${UI_PORT}/ws -> ws://${GATEWAY_HOST}:${GATEWAY_PORT}`,
+  );
 });
