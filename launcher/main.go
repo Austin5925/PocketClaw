@@ -66,6 +66,7 @@ func main() {
 	// Sync our config to OpenClaw's internal config (direct file write, no Node.js)
 	logMsg("正在同步配置...")
 	syncConfigToOpenClaw()
+	setProviderEnvVars()
 
 	// Start gateway — run Node.js directly with the JS entry point
 	logMsg("正在启动 AI 引擎...")
@@ -182,7 +183,10 @@ func setupLogging() {
 	logFile, err = os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		logFile = os.Stderr
+		return
 	}
+	// UTF-8 BOM so Windows tools recognize encoding
+	logFile.Write([]byte{0xEF, 0xBB, 0xBF})
 }
 
 func logMsg(msg string) {
@@ -388,6 +392,38 @@ func syncConfigToOpenClaw() {
 		return
 	}
 	logMsg("配置同步完成")
+}
+
+// setProviderEnvVars sets API keys as env vars so OpenClaw's agent auth
+// can find them via the env var fallback chain (verified from source).
+func setProviderEnvVars() {
+	configPath := filepath.Join(baseDir, "data", ".openclaw", "openclaw.json")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return
+	}
+	var config map[string]interface{}
+	if err := json.Unmarshal(data, &config); err != nil {
+		return
+	}
+
+	// Mapping verified from OpenClaw source: extensions/*/openclaw.plugin.json
+	envVarMap := map[string]string{
+		"minimax":   "MINIMAX_API_KEY",
+		"deepseek":  "DEEPSEEK_API_KEY",
+		"openai":    "OPENAI_API_KEY",
+		"anthropic": "ANTHROPIC_API_KEY",
+		"moonshot":  "MOONSHOT_API_KEY",
+		"kimi":      "MOONSHOT_API_KEY",
+	}
+
+	for provider, envVar := range envVarMap {
+		if providerCfg, ok := config[provider].(map[string]interface{}); ok {
+			if apiKey, ok := providerCfg["apiKey"].(string); ok && apiKey != "" {
+				os.Setenv(envVar, apiKey)
+			}
+		}
+	}
 }
 
 func fileExists(path string) bool {

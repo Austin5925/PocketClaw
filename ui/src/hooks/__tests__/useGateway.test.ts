@@ -1,4 +1,4 @@
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { useGateway } from "../useGateway";
 
@@ -45,7 +45,12 @@ class MockWebSocket {
       event: "connect.challenge",
       payload: { nonce: "test-nonce-123", ts: Date.now() },
     });
-    // Client should have sent a connect frame — simulate hello-ok response
+    // hello-ok is sent after a microtask delay (async Ed25519 signing)
+    // so the caller must await before checking results
+  }
+
+  /** Send hello-ok after the async connect frame resolves */
+  sendHelloOk() {
     this.simulateMessage({
       type: "res",
       id: "test-id",
@@ -56,6 +61,16 @@ class MockWebSocket {
 }
 
 Object.defineProperty(MockWebSocket.prototype, "OPEN", { value: 1 });
+
+// Mock Ed25519 device identity so tests don't need real Web Crypto Ed25519
+vi.mock("../../utils/deviceIdentity", () => ({
+  signChallenge: vi.fn().mockResolvedValue({
+    deviceId: "mock-device-id",
+    publicKey: "mock-public-key",
+    signature: "mock-signature",
+    signedAt: 1700000000000,
+  }),
+}));
 
 beforeEach(() => {
   wsInstances = [];
@@ -74,6 +89,20 @@ function getLatestWs(): MockWebSocket {
   return ws;
 }
 
+async function completeHandshake(ws: MockWebSocket) {
+  act(() => {
+    ws.simulateHandshake();
+  });
+  // Wait for async Ed25519 signing to resolve and connect frame to be sent
+  await waitFor(() => {
+    expect(ws.sent.length).toBeGreaterThanOrEqual(1);
+  });
+  // Now send hello-ok
+  act(() => {
+    ws.sendHelloOk();
+  });
+}
+
 describe("useGateway", () => {
   it("starts disconnected then connects after handshake", async () => {
     const { result } = renderHook(() => useGateway());
@@ -81,24 +110,18 @@ describe("useGateway", () => {
     expect(result.current.connected).toBe(false);
 
     const ws = getLatestWs();
-    act(() => {
-      ws.simulateHandshake();
-    });
+    await completeHandshake(ws);
 
     expect(result.current.connected).toBe(true);
-    // Should have sent a connect frame
-    expect(ws.sent.length).toBeGreaterThanOrEqual(1);
     const connectFrame = JSON.parse(ws.sent[0] as string);
     expect(connectFrame.method).toBe("connect");
   });
 
-  it("sends a message and creates placeholder", () => {
+  it("sends a message and creates placeholder", async () => {
     const { result } = renderHook(() => useGateway());
 
     const ws = getLatestWs();
-    act(() => {
-      ws.simulateHandshake();
-    });
+    await completeHandshake(ws);
 
     act(() => {
       result.current.sendMessage("Hello");
@@ -112,13 +135,11 @@ describe("useGateway", () => {
     expect(result.current.pending).toBe(true);
   });
 
-  it("clears messages", () => {
+  it("clears messages", async () => {
     const { result } = renderHook(() => useGateway());
 
     const ws = getLatestWs();
-    act(() => {
-      ws.simulateHandshake();
-    });
+    await completeHandshake(ws);
 
     act(() => {
       result.current.sendMessage("Hello");
@@ -134,13 +155,11 @@ describe("useGateway", () => {
     expect(result.current.pending).toBe(false);
   });
 
-  it("ignores empty messages", () => {
+  it("ignores empty messages", async () => {
     const { result } = renderHook(() => useGateway());
 
     const ws = getLatestWs();
-    act(() => {
-      ws.simulateHandshake();
-    });
+    await completeHandshake(ws);
 
     act(() => {
       result.current.sendMessage("   ");

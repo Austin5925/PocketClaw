@@ -1,3 +1,5 @@
+import { signChallenge } from "./deviceIdentity";
+
 type MessageHandler = (data: WebSocketMessage) => void;
 type StatusHandler = (connected: boolean, error?: string) => void;
 
@@ -11,7 +13,6 @@ export interface WebSocketMessage {
 }
 
 const GATEWAY_WS_URL = "ws://localhost:18789/";
-const GATEWAY_TOKEN = "pocketclaw-local";
 
 export class GatewayWebSocket {
   private ws: WebSocket | null = null;
@@ -46,7 +47,9 @@ export class GatewayWebSocket {
         // Step 1: Receive challenge, send connect frame
         if (data.type === "event" && data.event === "connect.challenge") {
           const nonce = (data.payload as Record<string, unknown>)?.nonce as string;
-          this.sendConnectFrame(nonce);
+          this.sendConnectFrame(nonce).catch(() => {
+            this.notifyStatus(false, "设备认证失败");
+          });
           return;
         }
 
@@ -91,8 +94,10 @@ export class GatewayWebSocket {
     }
   }
 
-  private sendConnectFrame(nonce: string): void {
+  private async sendConnectFrame(nonce: string): Promise<void> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+    const device = await signChallenge(nonce);
 
     const frame = {
       type: "req",
@@ -101,14 +106,21 @@ export class GatewayWebSocket {
       params: {
         minProtocol: 3,
         maxProtocol: 3,
-        auth: { token: GATEWAY_TOKEN },
         client: {
           id: "gateway-client",
           version: "1.0",
           mode: "backend",
           platform: navigator.platform,
         },
-        device: { id: "pocketclaw-device", nonce },
+        role: "operator",
+        scopes: ["operator.read", "operator.write"],
+        device: {
+          id: device.deviceId,
+          publicKey: device.publicKey,
+          signature: device.signature,
+          signedAt: device.signedAt,
+          nonce,
+        },
         locale: "zh-CN",
       },
     };
