@@ -109,6 +109,8 @@ export class GatewayWebSocket {
           mode: "webchat",
           platform: navigator.platform,
         },
+        role: "operator",
+        scopes: ["operator.read", "operator.write"],
         device: {
           id: "pocketclaw",
           publicKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",

@@ -91,8 +91,9 @@ function syncAuthProfiles(config) {
 }
 
 /**
- * Sync API keys and model to OpenClaw's internal config.
- * Writes to models.providers.<id>.apiKey and agents.defaults.model.
+ * Sync model setting to OpenClaw's internal config.
+ * Only writes agents.defaults.model — API keys go through auth-profiles.json.
+ * Do NOT write to models.providers (incomplete entries fail Zod strict validation).
  */
 function syncInternalConfig(config) {
   const internalDir = path.join(DATA_DIR, ".openclaw", ".openclaw");
@@ -105,24 +106,11 @@ function syncInternalConfig(config) {
     // File doesn't exist yet, start fresh
   }
 
-  // Sync model
   const model = config.agent?.model;
   if (model) {
     if (!internal.agents) internal.agents = {};
     if (!internal.agents.defaults) internal.agents.defaults = {};
     internal.agents.defaults.model = model;
-  }
-
-  // Sync API keys to models.providers
-  if (!internal.models) internal.models = {};
-  if (!internal.models.providers) internal.models.providers = {};
-  for (const provider of KNOWN_PROVIDERS) {
-    const apiKey = config[provider]?.apiKey;
-    if (apiKey) {
-      if (!internal.models.providers[provider])
-        internal.models.providers[provider] = {};
-      internal.models.providers[provider].apiKey = apiKey;
-    }
   }
 
   fs.mkdirSync(internalDir, { recursive: true });

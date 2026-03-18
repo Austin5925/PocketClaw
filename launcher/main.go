@@ -345,32 +345,9 @@ func syncConfigToOpenClaw() {
 		}
 	}
 
-	// Sync provider API keys to models.providers.<id>.apiKey
-	models, _ := internalConfig["models"].(map[string]interface{})
-	if models == nil {
-		models = make(map[string]interface{})
-	}
-	modProviders, _ := models["providers"].(map[string]interface{})
-	if modProviders == nil {
-		modProviders = make(map[string]interface{})
-	}
-
-	knownProviders := []string{"minimax", "deepseek", "kimi", "moonshot", "qwen", "anthropic", "openai", "glm", "zhipu"}
-	for _, provider := range knownProviders {
-		if providerCfg, ok := ourConfig[provider].(map[string]interface{}); ok {
-			if apiKey, ok := providerCfg["apiKey"].(string); ok && apiKey != "" {
-				mp, _ := modProviders[provider].(map[string]interface{})
-				if mp == nil {
-					mp = make(map[string]interface{})
-				}
-				mp["apiKey"] = apiKey
-				modProviders[provider] = mp
-			}
-		}
-	}
-
-	models["providers"] = modProviders
-	internalConfig["models"] = models
+	// API keys go through auth-profiles.json only (writeAuthProfiles).
+	// Do NOT write to models.providers — incomplete entries fail Zod strict validation
+	// and cause config reload to be skipped entirely.
 
 	// Write back
 	os.MkdirAll(internalDir, 0755)
