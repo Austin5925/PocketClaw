@@ -51,10 +51,7 @@ export class GatewayWebSocket {
         }
 
         // Step 2: Receive hello-ok, connection established
-        if (
-          data.type === "res" &&
-          (data.payload as Record<string, unknown>)?.type === "hello-ok"
-        ) {
+        if (data.type === "res" && (data.payload as Record<string, unknown>)?.type === "hello-ok") {
           this.handshakeComplete = true;
           this.reconnectAttempts = 0;
           this.notifyStatus(true);

@@ -62,15 +62,9 @@ func main() {
 	os.Setenv("OPENCLAW_HOME", filepath.Join(baseDir, "data", ".openclaw"))
 	os.Setenv("POCKETCLAW_GATEWAY_TOKEN", "pocketclaw-local")
 
-	// Set a known gateway auth token via OpenClaw's config system
-	logMsg("正在配置 Gateway 令牌...")
-	configCmd := exec.Command(nodeBin, openclawEntry, "config", "set", "gateway.auth.token", "pocketclaw-local")
-	configCmd.Dir = baseDir
-	configCmd.Stdout = logFile
-	configCmd.Stderr = logFile
-	if err := configCmd.Run(); err != nil {
-		logMsg("令牌配置失败（非致命）: " + err.Error())
-	}
+	// Sync our config to OpenClaw's internal config via `openclaw config set`
+	logMsg("正在同步配置...")
+	syncConfigToOpenClaw(nodeBin, openclawEntry)
 
 	// Start gateway — run Node.js directly with the JS entry point
 	logMsg("正在启动 AI 引擎...")
@@ -284,6 +278,53 @@ func detectOpenClawEntry() string {
 
 	logMsg("无法定位 OpenClaw 入口文件")
 	return ""
+}
+
+// syncConfigToOpenClaw reads our openclaw.json and syncs key fields
+// to OpenClaw's internal config via `openclaw config set`.
+func syncConfigToOpenClaw(nodeBin, openclawEntry string) {
+	configPath := filepath.Join(baseDir, "data", ".openclaw", "openclaw.json")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		logMsg("无法读取配置文件: " + err.Error())
+		return
+	}
+
+	var config map[string]interface{}
+	if err := json.Unmarshal(data, &config); err != nil {
+		logMsg("无法解析配置文件: " + err.Error())
+		return
+	}
+
+	// Always set gateway auth token
+	runConfigSet(nodeBin, openclawEntry, "gateway.auth.token", "pocketclaw-local")
+
+	// Sync agent model
+	if agent, ok := config["agent"].(map[string]interface{}); ok {
+		if model, ok := agent["model"].(string); ok && model != "" {
+			runConfigSet(nodeBin, openclawEntry, "agent.model", model)
+		}
+	}
+
+	// Sync provider API keys (e.g. minimax.apiKey, deepseek.apiKey)
+	knownProviders := []string{"minimax", "deepseek", "kimi", "moonshot", "qwen", "anthropic", "openai", "glm", "zhipu"}
+	for _, provider := range knownProviders {
+		if providerCfg, ok := config[provider].(map[string]interface{}); ok {
+			if apiKey, ok := providerCfg["apiKey"].(string); ok && apiKey != "" {
+				runConfigSet(nodeBin, openclawEntry, provider+".apiKey", apiKey)
+			}
+		}
+	}
+}
+
+func runConfigSet(nodeBin, openclawEntry, key, value string) {
+	cmd := exec.Command(nodeBin, openclawEntry, "config", "set", key, value)
+	cmd.Dir = baseDir
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+	if err := cmd.Run(); err != nil {
+		logMsg(fmt.Sprintf("config set %s 失败: %s", key, err.Error()))
+	}
 }
 
 func fileExists(path string) bool {

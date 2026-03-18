@@ -74,12 +74,7 @@ export function Dashboard() {
               <p className="mt-1 text-center text-xs text-amber-600">点击配置 API Key</p>
             )}
           </Link>
-          <StatusCard
-            icon="💬"
-            label="Gateway 状态"
-            value={gatewayLabel}
-            status={gatewayStatus}
-          />
+          <StatusCard icon="💬" label="Gateway 状态" value={gatewayLabel} status={gatewayStatus} />
         </div>
 
         <div className="space-y-3">

@@ -15,6 +15,10 @@ function makeId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function uuid(): string {
+  return crypto.randomUUID();
+}
+
 export function useGateway(): UseGatewayReturn {
   const [connected, setConnected] = useState(false);
   const [connectionError, setConnectionError] = useState("");
@@ -37,70 +41,76 @@ export function useGateway(): UseGatewayReturn {
     });
 
     const unsubMessage = ws.onMessage((data: WebSocketMessage) => {
-      // Handle OpenClaw event messages (chat responses)
-      if (data.type === "event" && data.event === "agent") {
+      // Handle OpenClaw chat events (agent responses)
+      if (data.type === "event" && data.event === "chat") {
         const payload = data.payload as Record<string, unknown> | undefined;
-        const text = (payload?.text as string) ?? (payload?.content as string) ?? "";
-        const done = payload?.done === true || payload?.final === true;
+        if (!payload) return;
 
-        if (text && pendingIdRef.current) {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === pendingIdRef.current ? { ...m, content: m.content + text } : m,
-            ),
-          );
+        const state = payload.state as string;
+        const msg = payload.message as Record<string, unknown> | undefined;
+
+        if (msg && pendingIdRef.current) {
+          // Extract text from content array: [{type:"text", text:"..."}]
+          const contentArr = msg.content as Array<Record<string, unknown>> | undefined;
+          let text = "";
+          if (Array.isArray(contentArr)) {
+            text = contentArr
+              .filter((c) => c.type === "text")
+              .map((c) => (c.text as string) ?? "")
+              .join("");
+          } else if (typeof msg.content === "string") {
+            text = msg.content;
+          }
+
+          if (text) {
+            setMessages((prev) =>
+              prev.map((m) => (m.id === pendingIdRef.current ? { ...m, content: text } : m)),
+            );
+          }
         }
 
-        if (done && pendingIdRef.current) {
+        if (state === "final" && pendingIdRef.current) {
           setMessages((prev) =>
             prev.map((m) => (m.id === pendingIdRef.current ? { ...m, pending: false } : m)),
           );
           pendingIdRef.current = null;
           setPending(false);
         }
+
+        // Handle agent errors
+        if (state === "final" && msg) {
+          const content = msg.content as Array<Record<string, unknown>> | undefined;
+          if (Array.isArray(content)) {
+            const errorItem = content.find(
+              (c) => c.type === "text" && typeof c.text === "string" && c.text.includes("failed"),
+            );
+            if (errorItem && pendingIdRef.current) {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === pendingIdRef.current
+                    ? { ...m, content: String(errorItem.text), pending: false, role: "system" }
+                    : m,
+                ),
+              );
+              pendingIdRef.current = null;
+              setPending(false);
+            }
+          }
+        }
         return;
       }
 
-      // Handle OpenClaw RPC responses
-      if (data.type === "res") {
-        const ok = (data as Record<string, unknown>).ok as boolean;
-        if (!ok && pendingIdRef.current) {
+      // Handle RPC error responses
+      if (data.type === "res" && !(data as Record<string, unknown>).ok) {
+        if (pendingIdRef.current) {
           const payload = data.payload as Record<string, unknown> | undefined;
           const errMsg = (payload?.message as string) ?? "请求失败";
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: makeId(),
-              role: "system",
-              content: `Error: ${errMsg}`,
-              timestamp: Date.now(),
-            },
-          ]);
-          setMessages((prev) =>
-            prev.map((m) => (m.id === pendingIdRef.current ? { ...m, pending: false } : m)),
-          );
-          pendingIdRef.current = null;
-          setPending(false);
-        }
-        return;
-      }
-
-      // Legacy format fallback
-      if (data.type === "text" || data.type === "message") {
-        const content = typeof data.content === "string" ? data.content : "";
-        if (pendingIdRef.current) {
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === pendingIdRef.current ? { ...m, content: m.content + content } : m,
+              m.id === pendingIdRef.current
+                ? { ...m, content: errMsg, pending: false, role: "system" }
+                : m,
             ),
-          );
-        }
-      }
-
-      if (data.type === "end" || data.type === "done" || data.type === "error") {
-        if (pendingIdRef.current) {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === pendingIdRef.current ? { ...m, pending: false } : m)),
           );
           pendingIdRef.current = null;
           setPending(false);
@@ -140,9 +150,12 @@ export function useGateway(): UseGatewayReturn {
     setPending(true);
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
 
-    // Send via OpenClaw RPC protocol
-    wsRef.current.sendRpc("agent", {
+    // Send via OpenClaw chat.send RPC (verified from DevTools)
+    wsRef.current.sendRpc("chat.send", {
+      sessionKey: "agent:main:main",
       message: content.trim(),
+      deliver: false,
+      idempotencyKey: uuid(),
     });
   }, []);
 
