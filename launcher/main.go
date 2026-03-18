@@ -25,6 +25,10 @@ var (
 )
 
 func main() {
+	if runtime.GOOS == "windows" {
+		exec.Command("cmd", "/c", "chcp 65001").Run()
+	}
+
 	resolveBaseDir()
 	setupLogging()
 	defer logFile.Close()
@@ -322,15 +326,20 @@ func syncConfigToOpenClaw() {
 	gw["auth"] = auth
 	internalConfig["gateway"] = gw
 
-	// Sync agent model
+	// Sync agent model (OpenClaw uses agents.defaults.model, not agent.model)
 	if agent, ok := ourConfig["agent"].(map[string]interface{}); ok {
 		if model, ok := agent["model"].(string); ok && model != "" {
-			internalAgent, _ := internalConfig["agent"].(map[string]interface{})
-			if internalAgent == nil {
-				internalAgent = make(map[string]interface{})
+			agents, _ := internalConfig["agents"].(map[string]interface{})
+			if agents == nil {
+				agents = make(map[string]interface{})
 			}
-			internalAgent["model"] = model
-			internalConfig["agent"] = internalAgent
+			defaults, _ := agents["defaults"].(map[string]interface{})
+			if defaults == nil {
+				defaults = make(map[string]interface{})
+			}
+			defaults["model"] = model
+			agents["defaults"] = defaults
+			internalConfig["agents"] = agents
 		}
 	}
 
