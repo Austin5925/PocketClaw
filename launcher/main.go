@@ -64,7 +64,7 @@ func main() {
 
 	os.Setenv("PATH", filepath.Dir(nodeBin)+string(os.PathListSeparator)+os.Getenv("PATH"))
 	os.Setenv("OPENCLAW_HOME", filepath.Join(baseDir, "data", ".openclaw"))
-	os.Setenv("POCKETCLAW_GATEWAY_TOKEN", "pocketclaw-local")
+	os.Setenv("OPENCLAW_GATEWAY_TOKEN", "pocketclaw-local")
 
 	// Sync our config to OpenClaw's internal config (direct file write, no Node.js)
 	logMsg("正在同步配置...")
@@ -72,7 +72,7 @@ func main() {
 
 	// Start gateway — run Node.js directly with the JS entry point
 	logMsg("正在启动 AI 引擎...")
-	gatewayCmd := exec.Command(nodeBin, openclawEntry, "gateway", "--port", gatewayPort, "--allow-unconfigured")
+	gatewayCmd := exec.Command(nodeBin, openclawEntry, "gateway", "--port", gatewayPort, "--token", "pocketclaw-local", "--allow-unconfigured")
 	gatewayCmd.Dir = baseDir
 	gatewayCmd.Stdout = logFile
 	gatewayCmd.Stderr = logFile
