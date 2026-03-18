@@ -62,9 +62,9 @@ func main() {
 	os.Setenv("OPENCLAW_HOME", filepath.Join(baseDir, "data", ".openclaw"))
 	os.Setenv("POCKETCLAW_GATEWAY_TOKEN", "pocketclaw-local")
 
-	// Sync our config to OpenClaw's internal config via `openclaw config set`
+	// Sync our config to OpenClaw's internal config (direct file write, no Node.js)
 	logMsg("正在同步配置...")
-	syncConfigToOpenClaw(nodeBin, openclawEntry)
+	syncConfigToOpenClaw()
 
 	// Start gateway — run Node.js directly with the JS entry point
 	logMsg("正在启动 AI 引擎...")
@@ -280,51 +280,87 @@ func detectOpenClawEntry() string {
 	return ""
 }
 
-// syncConfigToOpenClaw reads our openclaw.json and syncs key fields
-// to OpenClaw's internal config via `openclaw config set`.
-func syncConfigToOpenClaw(nodeBin, openclawEntry string) {
-	configPath := filepath.Join(baseDir, "data", ".openclaw", "openclaw.json")
-	data, err := os.ReadFile(configPath)
+// syncConfigToOpenClaw reads our openclaw.json and writes key fields
+// directly into OpenClaw's internal config file (no Node.js process needed).
+func syncConfigToOpenClaw() {
+	// Read our config
+	ourConfigPath := filepath.Join(baseDir, "data", ".openclaw", "openclaw.json")
+	ourData, err := os.ReadFile(ourConfigPath)
 	if err != nil {
 		logMsg("无法读取配置文件: " + err.Error())
 		return
 	}
 
-	var config map[string]interface{}
-	if err := json.Unmarshal(data, &config); err != nil {
+	var ourConfig map[string]interface{}
+	if err := json.Unmarshal(ourData, &ourConfig); err != nil {
 		logMsg("无法解析配置文件: " + err.Error())
 		return
 	}
 
-	// Always set gateway auth token
-	runConfigSet(nodeBin, openclawEntry, "gateway.auth.token", "pocketclaw-local")
+	// Read OpenClaw's internal config (create if doesn't exist)
+	internalDir := filepath.Join(baseDir, "data", ".openclaw", ".openclaw")
+	internalConfigPath := filepath.Join(internalDir, "openclaw.json")
+
+	var internalConfig map[string]interface{}
+	if internalData, err := os.ReadFile(internalConfigPath); err == nil {
+		json.Unmarshal(internalData, &internalConfig)
+	}
+	if internalConfig == nil {
+		internalConfig = make(map[string]interface{})
+	}
+
+	// Ensure gateway.auth.token
+	gw, _ := internalConfig["gateway"].(map[string]interface{})
+	if gw == nil {
+		gw = make(map[string]interface{})
+	}
+	auth, _ := gw["auth"].(map[string]interface{})
+	if auth == nil {
+		auth = make(map[string]interface{})
+	}
+	auth["token"] = "pocketclaw-local"
+	gw["auth"] = auth
+	internalConfig["gateway"] = gw
 
 	// Sync agent model
-	if agent, ok := config["agent"].(map[string]interface{}); ok {
+	if agent, ok := ourConfig["agent"].(map[string]interface{}); ok {
 		if model, ok := agent["model"].(string); ok && model != "" {
-			runConfigSet(nodeBin, openclawEntry, "agent.model", model)
+			internalAgent, _ := internalConfig["agent"].(map[string]interface{})
+			if internalAgent == nil {
+				internalAgent = make(map[string]interface{})
+			}
+			internalAgent["model"] = model
+			internalConfig["agent"] = internalAgent
 		}
 	}
 
-	// Sync provider API keys (e.g. minimax.apiKey, deepseek.apiKey)
-	knownProviders := []string{"minimax", "deepseek", "kimi", "moonshot", "qwen", "anthropic", "openai", "glm", "zhipu"}
-	for _, provider := range knownProviders {
-		if providerCfg, ok := config[provider].(map[string]interface{}); ok {
+	// Sync provider API keys
+	providers := []string{"minimax", "deepseek", "kimi", "moonshot", "qwen", "anthropic", "openai", "glm", "zhipu"}
+	for _, provider := range providers {
+		if providerCfg, ok := ourConfig[provider].(map[string]interface{}); ok {
 			if apiKey, ok := providerCfg["apiKey"].(string); ok && apiKey != "" {
-				runConfigSet(nodeBin, openclawEntry, provider+".apiKey", apiKey)
+				internalProvider, _ := internalConfig[provider].(map[string]interface{})
+				if internalProvider == nil {
+					internalProvider = make(map[string]interface{})
+				}
+				internalProvider["apiKey"] = apiKey
+				internalConfig[provider] = internalProvider
 			}
 		}
 	}
-}
 
-func runConfigSet(nodeBin, openclawEntry, key, value string) {
-	cmd := exec.Command(nodeBin, openclawEntry, "config", "set", key, value)
-	cmd.Dir = baseDir
-	cmd.Stdout = logFile
-	cmd.Stderr = logFile
-	if err := cmd.Run(); err != nil {
-		logMsg(fmt.Sprintf("config set %s 失败: %s", key, err.Error()))
+	// Write back
+	os.MkdirAll(internalDir, 0755)
+	outData, err := json.MarshalIndent(internalConfig, "", "  ")
+	if err != nil {
+		logMsg("无法序列化配置: " + err.Error())
+		return
 	}
+	if err := os.WriteFile(internalConfigPath, outData, 0644); err != nil {
+		logMsg("无法写入内部配置: " + err.Error())
+		return
+	}
+	logMsg("配置同步完成")
 }
 
 func fileExists(path string) bool {
