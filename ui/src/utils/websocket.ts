@@ -103,12 +103,12 @@ export class GatewayWebSocket {
         maxProtocol: 3,
         auth: { token: GATEWAY_TOKEN },
         client: {
-          id: "pocketclaw",
+          id: "gateway-client",
           version: "1.0",
-          mode: "webchat",
+          mode: "backend",
           platform: navigator.platform,
         },
-        device: { nonce },
+        device: { id: "pocketclaw-device", nonce },
         locale: "zh-CN",
       },
     };

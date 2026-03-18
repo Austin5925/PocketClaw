@@ -25,10 +25,7 @@ var (
 )
 
 func main() {
-	if runtime.GOOS == "windows" {
-		exec.Command("cmd", "/c", "chcp 65001").Run()
-	}
-
+	initConsole()
 	resolveBaseDir()
 	setupLogging()
 	defer logFile.Close()
@@ -64,7 +61,7 @@ func main() {
 
 	os.Setenv("PATH", filepath.Dir(nodeBin)+string(os.PathListSeparator)+os.Getenv("PATH"))
 	os.Setenv("OPENCLAW_HOME", filepath.Join(baseDir, "data", ".openclaw"))
-	os.Setenv("OPENCLAW_GATEWAY_TOKEN", "pocketclaw-local")
+	// Auth mode "none" — no token needed for local loopback
 
 	// Sync our config to OpenClaw's internal config (direct file write, no Node.js)
 	logMsg("正在同步配置...")
@@ -72,7 +69,7 @@ func main() {
 
 	// Start gateway — run Node.js directly with the JS entry point
 	logMsg("正在启动 AI 引擎...")
-	gatewayCmd := exec.Command(nodeBin, openclawEntry, "gateway", "--port", gatewayPort, "--token", "pocketclaw-local", "--allow-unconfigured")
+	gatewayCmd := exec.Command(nodeBin, openclawEntry, "gateway", "--port", gatewayPort, "--allow-unconfigured")
 	gatewayCmd.Dir = baseDir
 	gatewayCmd.Stdout = logFile
 	gatewayCmd.Stderr = logFile
@@ -313,7 +310,7 @@ func syncConfigToOpenClaw() {
 		internalConfig = make(map[string]interface{})
 	}
 
-	// Ensure gateway.auth.token
+	// Local-only: no auth + no device identity checks
 	gw, _ := internalConfig["gateway"].(map[string]interface{})
 	if gw == nil {
 		gw = make(map[string]interface{})
@@ -322,10 +319,9 @@ func syncConfigToOpenClaw() {
 	if auth == nil {
 		auth = make(map[string]interface{})
 	}
-	auth["token"] = "pocketclaw-local"
+	auth["mode"] = "none"
 	gw["auth"] = auth
 
-	// Disable device identity checks for local-only deployment
 	controlUi, _ := gw["controlUi"].(map[string]interface{})
 	if controlUi == nil {
 		controlUi = make(map[string]interface{})
