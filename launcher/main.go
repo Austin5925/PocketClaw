@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,9 +15,8 @@ import (
 )
 
 const (
-	gatewayPort    = "18789"
-	uiPort         = "3210"
-	healthTimeout  = 90 // seconds, USB 2.0 needs more time
+	gatewayPort = "18789"
+	uiPort      = "3210"
 )
 
 var (
@@ -40,12 +40,12 @@ func main() {
 	}
 	logMsg("Node.js: " + nodeBin)
 
-	openclawBin := detectOpenClaw()
-	if openclawBin == "" {
+	openclawEntry := detectOpenClawEntry()
+	if openclawEntry == "" {
 		showError("运行环境不完整：AI 引擎未找到。\n请重新获取 PocketClaw 完整版本。")
 		return
 	}
-	logMsg("OpenClaw: " + openclawBin)
+	logMsg("OpenClaw: " + openclawEntry)
 
 	if !fileExists(filepath.Join(baseDir, "app", "ui", "dist", "index.html")) {
 		showError("运行环境不完整：界面文件未找到。\n请重新获取 PocketClaw 完整版本。")
@@ -61,14 +61,9 @@ func main() {
 	os.Setenv("PATH", filepath.Dir(nodeBin)+string(os.PathListSeparator)+os.Getenv("PATH"))
 	os.Setenv("OPENCLAW_HOME", filepath.Join(baseDir, "data", ".openclaw"))
 
-	// Start gateway
+	// Start gateway — run Node.js directly with the JS entry point
 	logMsg("正在启动 AI 引擎...")
-	var gatewayCmd *exec.Cmd
-	if runtime.GOOS == "windows" {
-		gatewayCmd = exec.Command("cmd", "/c", openclawBin, "gateway", "--port", gatewayPort)
-	} else {
-		gatewayCmd = exec.Command("bash", openclawBin, "gateway", "--port", gatewayPort)
-	}
+	gatewayCmd := exec.Command(nodeBin, openclawEntry, "gateway", "--port", gatewayPort)
 	gatewayCmd.Dir = baseDir
 	gatewayCmd.Stdout = logFile
 	gatewayCmd.Stderr = logFile
@@ -83,14 +78,13 @@ func main() {
 		gatewayExited <- gatewayCmd.Wait()
 	}()
 
-	// Health check with early exit detection
-	logMsg("等待 AI 引擎就绪（USB 2.0 可能需要较长时间）...")
+	// Health check — no timeout, only exit if process crashes
+	logMsg("等待 AI 引擎就绪...")
 	healthy := false
 	client := &http.Client{Timeout: 2 * time.Second}
-	for i := 0; i < healthTimeout; i++ {
+	for elapsed := 0; ; elapsed++ {
 		select {
 		case err := <-gatewayExited:
-			// Gateway crashed before becoming healthy
 			errMsg := "AI 引擎异常退出"
 			if err != nil {
 				errMsg += ": " + err.Error()
@@ -110,17 +104,13 @@ func main() {
 			}
 		}
 
-		if i > 0 && i%10 == 0 {
-			logMsg(fmt.Sprintf("仍在等待 AI 引擎...（%d/%d 秒）", i, healthTimeout))
+		if elapsed > 0 && elapsed%5 == 0 {
+			logMsg(fmt.Sprintf("仍在加载中...（已等待 %d 秒）", elapsed))
 		}
 		time.Sleep(time.Second)
 	}
 
 	if !healthy {
-		if gatewayCmd.Process != nil {
-			gatewayCmd.Process.Kill()
-		}
-		showErrorWithLog("AI 引擎启动超时（已等待 " + fmt.Sprintf("%d", healthTimeout) + " 秒）")
 		return
 	}
 	logMsg("AI 引擎已启动")
@@ -224,16 +214,64 @@ func detectNode() string {
 	return ""
 }
 
-func detectOpenClaw() string {
-	var p string
-	if runtime.GOOS == "windows" {
-		p = filepath.Join(baseDir, "app", "core", "node_modules", ".bin", "openclaw.cmd")
-	} else {
-		p = filepath.Join(baseDir, "app", "core", "node_modules", ".bin", "openclaw")
+// detectOpenClawEntry reads OpenClaw's package.json to find the actual JS entry point.
+// This avoids using bin stubs (.cmd/.sh) which are platform-specific wrappers.
+func detectOpenClawEntry() string {
+	coreDir := filepath.Join(baseDir, "app", "core", "node_modules", "openclaw")
+	pkgPath := filepath.Join(coreDir, "package.json")
+
+	data, err := os.ReadFile(pkgPath)
+	if err != nil {
+		logMsg("无法读取 openclaw/package.json: " + err.Error())
+		return ""
 	}
-	if fileExists(p) {
-		return p
+
+	var pkg struct {
+		Bin  interface{} `json:"bin"`
+		Main string      `json:"main"`
 	}
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		logMsg("无法解析 openclaw/package.json: " + err.Error())
+		return ""
+	}
+
+	// Try bin field first (can be string or map)
+	switch b := pkg.Bin.(type) {
+	case string:
+		entry := filepath.Join(coreDir, b)
+		if fileExists(entry) {
+			return entry
+		}
+	case map[string]interface{}:
+		for _, v := range b {
+			if s, ok := v.(string); ok {
+				entry := filepath.Join(coreDir, s)
+				if fileExists(entry) {
+					return entry
+				}
+			}
+		}
+	}
+
+	// Fallback to main field
+	if pkg.Main != "" {
+		entry := filepath.Join(coreDir, pkg.Main)
+		if fileExists(entry) {
+			return entry
+		}
+	}
+
+	// Last resort: common patterns
+	for _, candidate := range []string{
+		"bin/cli.js", "dist/cli.js", "cli.js", "bin/index.js", "dist/index.js",
+	} {
+		entry := filepath.Join(coreDir, candidate)
+		if fileExists(entry) {
+			return entry
+		}
+	}
+
+	logMsg("无法定位 OpenClaw 入口文件")
 	return ""
 }
 
@@ -267,7 +305,6 @@ func showError(msg string) {
 func showErrorWithLog(msg string) {
 	logMsg("ERROR: " + msg)
 
-	// Read last lines of log for diagnosis
 	logPath := filepath.Join(baseDir, "data", "pocketclaw.log")
 	logFile.Sync()
 	logData, err := os.ReadFile(logPath)
@@ -275,8 +312,8 @@ func showErrorWithLog(msg string) {
 	if err == nil {
 		lines := strings.Split(strings.TrimSpace(string(logData)), "\n")
 		start := 0
-		if len(lines) > 20 {
-			start = len(lines) - 20
+		if len(lines) > 30 {
+			start = len(lines) - 30
 		}
 		logTail = strings.Join(lines[start:], "\n")
 	}
@@ -291,7 +328,7 @@ func showErrorWithLog(msg string) {
 			fmt.Println("\n--- 日志（用于排查问题）---")
 			fmt.Println(logTail)
 			fmt.Println("--- 日志结束 ---")
-			fmt.Printf("\n日志文件: %s\n", logPath)
+			fmt.Printf("\n完整日志: %s\n", logPath)
 		}
 		fmt.Println("\n按 Enter 键退出...")
 		fmt.Scanln()

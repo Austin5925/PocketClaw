@@ -170,13 +170,16 @@ jobs:
             -o "../portable/启动 PocketClaw.exe" main.go
 
       - name: Create Windows package
-        shell: powershell
+        shell: bash
         run: |
-          $VERSION = "${{ needs.check-version.outputs.version }}"
-          Remove-Item -Path "portable\启动 PocketClaw.app" -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item -Path "portable\Mac-Start.command" -Force -ErrorAction SilentlyContinue
-          Remove-Item -Path "portable\Mac-Menu.command" -Force -ErrorAction SilentlyContinue
-          Compress-Archive -Path "portable\*" -DestinationPath "PocketClaw-v${VERSION}-windows.zip"
+          VERSION="${{ needs.check-version.outputs.version }}"
+          rm -rf "portable/启动 PocketClaw.app" 2>/dev/null || true
+          rm -f portable/Mac-Start.command portable/Mac-Menu.command 2>/dev/null || true
+          cd portable
+          7z a -r "../PocketClaw-v${VERSION}-windows.zip" . \
+            -x!data/.openclaw/credentials \
+            -x!data/memory/*.md \
+            -x!data/backups/*
 
       - uses: actions/upload-artifact@v4
         with:
