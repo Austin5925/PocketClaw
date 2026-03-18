@@ -1,6 +1,6 @@
 {
   "agent": {
-    "model": "minimax/MiniMax-Text-01"
+    "model": "minimax/MiniMax-M2.5"
   },
   "gateway": {
     "port": 18789,

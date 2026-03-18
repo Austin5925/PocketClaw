@@ -34,7 +34,7 @@ export const MODEL_PROVIDERS: ModelProvider[] = [
     id: "minimax",
     name: "MiniMax",
     description: "国产首选，中文能力强",
-    models: ["minimax/MiniMax-Text-01"],
+    models: ["minimax/MiniMax-M2.5"],
     recommended: true,
   },
   {
