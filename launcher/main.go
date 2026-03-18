@@ -324,6 +324,16 @@ func syncConfigToOpenClaw() {
 	}
 	auth["token"] = "pocketclaw-local"
 	gw["auth"] = auth
+
+	// Disable device identity checks for local-only deployment
+	controlUi, _ := gw["controlUi"].(map[string]interface{})
+	if controlUi == nil {
+		controlUi = make(map[string]interface{})
+	}
+	controlUi["allowInsecureAuth"] = true
+	controlUi["dangerouslyDisableDeviceAuth"] = true
+	gw["controlUi"] = controlUi
+
 	internalConfig["gateway"] = gw
 
 	// Sync agent model (OpenClaw uses agents.defaults.model, not agent.model)
