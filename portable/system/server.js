@@ -215,11 +215,93 @@ function handleApiHealth(res) {
     });
 }
 
+const PROVIDER_API_URLS = {
+  minimax: "https://api.minimaxi.com/anthropic/v1/messages",
+};
+
+function handleApiValidateKey(req, res) {
+  if (req.method !== "POST") {
+    res.writeHead(405);
+    res.end();
+    return;
+  }
+
+  let body = "";
+  req.on("data", (chunk) => (body += chunk));
+  req.on("end", () => {
+    try {
+      const { provider, apiKey, model } = JSON.parse(body);
+      const apiUrl = PROVIDER_API_URLS[provider];
+      if (!apiUrl || !apiKey) {
+        // No validation URL for this provider — assume valid
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ valid: true }));
+        return;
+      }
+
+      const modelId = (model || "").split("/")[1] || "MiniMax-M2.7";
+      const https = require("https");
+      const postData = JSON.stringify({
+        model: modelId,
+        max_tokens: 1,
+        messages: [{ role: "user", content: "hi" }],
+      });
+
+      const urlObj = new URL(apiUrl);
+      const options = {
+        hostname: urlObj.hostname,
+        path: urlObj.pathname,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "Content-Length": Buffer.byteLength(postData),
+        },
+        timeout: 10000,
+      };
+
+      const apiReq = https.request(options, (apiRes) => {
+        let data = "";
+        apiRes.on("data", (chunk) => (data += chunk));
+        apiRes.on("end", () => {
+          if (apiRes.statusCode === 401) {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ valid: false, error: "API Key 无效，请检查后重试" }));
+          } else {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ valid: true }));
+          }
+        });
+      });
+
+      apiReq.on("error", () => {
+        // Network error — skip validation, assume valid
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ valid: true }));
+      });
+
+      apiReq.on("timeout", () => {
+        apiReq.destroy();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ valid: true }));
+      });
+
+      apiReq.write(postData);
+      apiReq.end();
+    } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid request" }));
+    }
+  });
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || "/", `http://localhost:${UI_PORT}`);
   const pathname = url.pathname;
 
   if (pathname === "/api/config") return handleApiConfig(req, res);
+  if (pathname === "/api/validate-key") return handleApiValidateKey(req, res);
   if (pathname === "/api/version") return handleApiVersion(res);
   if (pathname === "/api/health") return handleApiHealth(res);
 

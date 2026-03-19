@@ -24,31 +24,20 @@ export function Onboarding() {
     setError(null);
 
     try {
-      // Validate API Key by sending a minimal test request
       const providerId = model.split("/")[0] ?? "";
-      const provider = MODEL_PROVIDERS.find((p) => p.id === providerId);
-      if (provider) {
-        const testUrl =
-          providerId === "minimax" ? "https://api.minimaxi.com/anthropic/v1/messages" : undefined;
-        if (testUrl) {
-          const testRes = await fetch(testUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-api-key": apiKey.trim(),
-              "anthropic-version": "2023-06-01",
-            },
-            body: JSON.stringify({
-              model: model.split("/")[1] ?? "",
-              max_tokens: 1,
-              messages: [{ role: "user", content: "hi" }],
-            }),
-          });
-          if (testRes.status === 401) {
-            setError("API Key 无效，请检查后重试");
-            setSaving(false);
-            return;
-          }
+
+      // Validate API Key via server proxy (avoids browser CORS)
+      const validateRes = await fetch("/api/validate-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: providerId, apiKey: apiKey.trim(), model }),
+      });
+      if (validateRes.ok) {
+        const result = (await validateRes.json()) as { valid: boolean; error?: string };
+        if (!result.valid) {
+          setError(result.error ?? "API Key 无效，请检查后重试");
+          setSaving(false);
+          return;
         }
       }
 
