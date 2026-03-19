@@ -200,8 +200,10 @@ jobs:
         with:
           merge-multiple: true
 
-      - name: List packages
-        run: ls -lh PocketClaw-*.zip
+      - name: Generate checksums
+        run: |
+          sha256sum PocketClaw-*.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
 
       - name: Create tag and release
         env:
@@ -218,4 +220,4 @@ jobs:
           gh release create "$VERSION" \
             --title "PocketClaw $VERSION" \
             --generate-notes \
-            PocketClaw-*.zip
+            PocketClaw-*.zip SHA256SUMS.txt

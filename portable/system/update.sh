@@ -52,6 +52,24 @@ download_update() {
     log "Downloading update v${version}..."
     curl -fSL "$url" -o "$tmpfile" || error "Download failed"
 
+    # Verify checksum if SHA256SUMS.txt is available
+    local sums_url="https://github.com/$GITHUB_REPO/releases/download/v${version}/SHA256SUMS.txt"
+    local sums_file="/tmp/pocketclaw-sha256sums.txt"
+    if curl -sfL "$sums_url" -o "$sums_file" 2>/dev/null; then
+        local expected
+        expected=$(grep "update.zip" "$sums_file" | awk '{print $1}')
+        if [ -n "$expected" ]; then
+            local actual
+            actual=$(shasum -a 256 "$tmpfile" | awk '{print $1}')
+            if [ "$expected" != "$actual" ]; then
+                rm -f "$tmpfile" "$sums_file"
+                error "Checksum verification failed (expected $expected, got $actual)"
+            fi
+            log "Checksum verified"
+        fi
+        rm -f "$sums_file"
+    fi
+
     log "Extracting update..."
     unzip -qo "$tmpfile" -d "$BASE_DIR" || error "Extraction failed"
 
