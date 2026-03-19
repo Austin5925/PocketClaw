@@ -1,3 +1,5 @@
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { ChatMessage } from "../types";
 
 interface ChatBubbleProps {
@@ -27,10 +29,18 @@ export function ChatBubble({ message }: ChatBubbleProps) {
             : "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
         }`}
       >
-        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-          {message.content || (message.pending ? "" : " ")}
-        </p>
-        {message.pending && (
+        {isUser ? (
+          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+            {message.content}
+          </p>
+        ) : (
+          <div className="prose prose-sm max-w-none break-words leading-relaxed prose-p:my-1 prose-pre:my-2 prose-pre:rounded-lg prose-pre:bg-gray-800 prose-pre:text-gray-100 prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-indigo-700 prose-code:before:content-none prose-code:after:content-none prose-headings:mt-3 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0">
+            {message.content ? (
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+            ) : null}
+          </div>
+        )}
+        {message.pending && !message.content && (
           <span className="mt-1 inline-block">
             <span className="inline-flex gap-1">
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:0ms]" />
@@ -38,6 +48,9 @@ export function ChatBubble({ message }: ChatBubbleProps) {
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:300ms]" />
             </span>
           </span>
+        )}
+        {message.pending && message.content && (
+          <span className="ml-1 inline-block h-3 w-0.5 animate-pulse bg-gray-400" />
         )}
       </div>
     </div>
