@@ -28,6 +28,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setConnected(isConnected);
       if (isConnected) {
         setConnectionError("");
+        // Force gateway to reload auth store on every connection.
+        // auth-profiles.json is cached in memory at gateway startup
+        // (runtimeAuthStoreSnapshots). If the config had Zod validation
+        // errors, the snapshot may be empty. secrets.reload forces a
+        // fresh read regardless of config state.
+        ws.sendRpc("secrets.reload", {});
       } else if (error) {
         setConnectionError(error);
       }
