@@ -2,13 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-03-19
+
+### Fixed (v1.0.1 — v1.0.28)
+
+- **Gateway connection**: Implemented OpenClaw Protocol v3 challenge-response handshake with proper client ID (`openclaw-control-ui`), operator role/scopes, and device identity fields
+- **API key delivery**: Agent auth reads from `auth-profiles.json`, not global config. Server now creates this file on every config save (fixed timing: onboarding saves AFTER gateway starts)
+- **MiniMax endpoint**: Switched from international `api.minimax.io` to China `api.minimaxi.com` for domestic API keys
+- **Config validation**: Complete `models.providers.minimax` entry (baseUrl, api, name, models) to pass Zod strict mode
+- **Gateway auth**: Use `gateway.auth.mode: "none"` for local loopback (no token mismatch)
+- **Config sync**: Direct JSON file write instead of spawning `openclaw config set` processes (~60s → instant)
+- **Onboarding flow**: `isConfigured` now requires both model AND API key (template ships with model pre-set, was skipping onboarding)
+- **Windows encoding**: `SetConsoleOutputCP(65001)` via Windows API for proper Chinese console display; added `查看日志.bat` for log viewing
+- **CI/CD**: `go build main.go` → `go build .` for multi-file Go packages with build tags
+
+### Changed
+
+- Default model upgraded from MiniMax-M2.5 to **MiniMax-M2.7**
+- Launcher rewritten as Go binary (.exe / .app) replacing batch/shell scripts
+- README now bilingual (Chinese default + English)
+
+### Added
+
+- `devdocs/openclaw-architecture-deep-dive.md` — OpenClaw source architecture reference
+- `查看日志.bat` — Windows log viewer with UTF-8 support
+- `README_EN.md` — English README
+
 ## [1.0.0] - 2026-03-17
 
 ### Added
 
 - **Portable Framework**: USB-bootable OpenClaw deployment with Mac/Windows support
   - `Mac-Start.command` / `Windows-Start.bat` launch scripts
-  - `Mac-Menu.command` / `Windows-Menu.bat` management menus
   - `setup.sh` / `setup.bat` for Node.js + OpenClaw download and initialization
   - Portable Node.js runtime embedding (Mac ARM64/x64, Windows x64)
   - `OPENCLAW_HOME` redirection to USB data directory
@@ -23,30 +48,17 @@ All notable changes to this project will be documented in this file.
 - **Communication Layer**: Gateway WebSocket integration
   - `useGateway` hook with auto-reconnect and streaming support
   - `useConfig` hook for configuration read/write via REST API
-  - Health check polling for gateway status
   - WebSocket proxy in UI server
 
 - **Update Mechanism**: Version checking and update scripts
-  - `update.sh` / `update.bat` with GitHub Releases integration
+  - GitHub Releases integration
   - `useUpdate` hook for UI-integrated version checking
-  - 5-snapshot backup rotation before updates
   - `migrate.js` for configuration compatibility across versions
 
 - **Build & CI/CD**
-  - `scripts/build-ui.sh` for UI build and deployment
-  - `scripts/build-portable.sh` for full USB package creation
-  - `scripts/release.sh` for GitHub Release artifact generation
   - GitHub Actions CI (lint, typecheck, test, build)
-  - GitHub Actions Release (auto-publish on tag push)
+  - GitHub Actions Release (auto-publish on version.txt change)
 
 - **Testing**: 12 unit tests across 3 hook test suites
-  - `useConfig` tests (load, error, update)
-  - `useGateway` tests (connect, send, clear, validation)
-  - `useUpdate` tests (version check, update detection, error handling)
 
-- **Documentation**
-  - README with quick start guide and tech stack overview
-  - User tutorial (TUTORIAL.md)
-  - FAQ (FAQ.md)
-  - Contributing guide (CONTRIBUTING.md)
-  - GitHub issue templates (bug report, feature request)
+- **Documentation**: README, tutorial, FAQ, contributing guide
