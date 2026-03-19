@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ModelSelector } from "../components/ModelSelector";
 import { ApiKeyInput } from "../components/ApiKeyInput";
 import { useConfig } from "../hooks/useConfig";
+import { MODEL_PROVIDERS } from "../utils/config";
 
 export function Onboarding() {
   const navigate = useNavigate();
@@ -76,14 +77,21 @@ export function Onboarding() {
               <p className="mb-4 text-sm text-gray-500">从模型提供商网站获取你的 API Key</p>
               <ApiKeyInput value={apiKey} onChange={setApiKey} />
               {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-              <a
-                href="https://platform.deepseek.com/api_keys"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-2 inline-block text-sm text-indigo-600 hover:underline"
-              >
-                如何获取 API Key？
-              </a>
+              {(() => {
+                const providerId = model.split("/")[0] ?? "";
+                const provider = MODEL_PROVIDERS.find((p) => p.id === providerId);
+                const url = provider?.apiKeyUrl;
+                return url ? (
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-block text-sm text-indigo-600 hover:underline"
+                  >
+                    前往 {provider?.name ?? "提供商"} 获取 API Key
+                  </a>
+                ) : null;
+              })()}
               <div className="mt-6 flex gap-3">
                 <button
                   onClick={() => setStep(1)}

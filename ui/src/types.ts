@@ -21,6 +21,7 @@ export interface ModelProvider {
   description: string;
   models: string[];
   recommended?: boolean;
+  apiKeyUrl?: string;
 }
 
 export interface ChatMessage {
