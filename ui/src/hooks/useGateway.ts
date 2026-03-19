@@ -46,7 +46,9 @@ export function useGateway(): UseGatewayReturn {
   const pendingIdRef = useRef<string | null>(null);
   const sessionKeyRef = useRef(DEFAULT_SESSION);
   const sendRpcRef = useRef(sendRpc);
-  sendRpcRef.current = sendRpc;
+  useEffect(() => {
+    sendRpcRef.current = sendRpc;
+  }, [sendRpc]);
 
   useEffect(() => {
     sessionKeyRef.current = currentSessionKey;

@@ -4,7 +4,6 @@ import { GatewayWebSocket, type WebSocketMessage } from "../utils/websocket";
 interface GatewayContextValue {
   connected: boolean;
   connectionError: string;
-  ws: GatewayWebSocket | null;
   sendRpc: (method: string, params: Record<string, unknown>) => void;
   onMessage: (handler: (data: WebSocketMessage) => void) => () => void;
 }
@@ -12,7 +11,6 @@ interface GatewayContextValue {
 const GatewayCtx = createContext<GatewayContextValue>({
   connected: false,
   connectionError: "",
-  ws: null,
   sendRpc: () => {},
   onMessage: () => () => {},
 });
@@ -53,9 +51,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <GatewayCtx.Provider
-      value={{ connected, connectionError, ws: wsRef.current, sendRpc, onMessage }}
-    >
+    <GatewayCtx.Provider value={{ connected, connectionError, sendRpc, onMessage }}>
       {children}
     </GatewayCtx.Provider>
   );
