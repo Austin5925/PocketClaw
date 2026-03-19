@@ -33,7 +33,7 @@ export function ChatBubble({ message, onRegenerate }: ChatBubbleProps) {
     <div className={`group flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div className="flex flex-col">
         <div
-          className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+          className={`max-w-3xl rounded-2xl px-4 py-3 ${
             isUser
               ? "bg-indigo-600 text-white"
               : "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:ring-gray-700"
