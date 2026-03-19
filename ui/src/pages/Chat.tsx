@@ -18,6 +18,7 @@ export function Chat() {
     switchSession,
     createSession,
     loadSessionHistory,
+    sessionList,
   } = useGateway();
   const { config } = useConfig();
   const [input, setInput] = useState("");
@@ -56,6 +57,7 @@ export function Chat() {
       currentSessionKey={currentSessionKey}
       onSessionChange={handleSessionChange}
       onNewChat={handleNewChat}
+      sessions={sessionList}
     >
       {/* Chat header */}
       <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2 dark:border-gray-700 dark:bg-gray-800">

@@ -2,6 +2,14 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { ChatMessage } from "../types";
 import { GatewayWebSocket, type WebSocketMessage } from "../utils/websocket";
 
+export interface SessionListItem {
+  key: string;
+  displayName?: string;
+  derivedTitle?: string;
+  lastMessagePreview?: string;
+  updatedAt?: number;
+}
+
 interface UseGatewayReturn {
   connected: boolean;
   connectionError: string;
@@ -14,6 +22,8 @@ interface UseGatewayReturn {
   switchSession: (key: string) => void;
   createSession: (label?: string) => void;
   loadSessionHistory: (key: string) => void;
+  sessionList: SessionListItem[];
+  refreshSessions: () => void;
 }
 
 function makeId(): string {
@@ -32,6 +42,7 @@ export function useGateway(): UseGatewayReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pending, setPending] = useState(false);
   const [currentSessionKey, setCurrentSessionKey] = useState(DEFAULT_SESSION);
+  const [sessionList, setSessionList] = useState<SessionListItem[]>([]);
   const wsRef = useRef<GatewayWebSocket | null>(null);
   const pendingIdRef = useRef<string | null>(null);
   const sessionKeyRef = useRef(DEFAULT_SESSION);
@@ -48,6 +59,12 @@ export function useGateway(): UseGatewayReturn {
       setConnected(isConnected);
       if (isConnected) {
         setConnectionError("");
+        // Load session list after connection established
+        ws.sendRpc("sessions.list", {
+          limit: 20,
+          includeDerivedTitles: true,
+          includeLastMessage: true,
+        });
       } else if (error) {
         setConnectionError(error);
       }
@@ -108,9 +125,23 @@ export function useGateway(): UseGatewayReturn {
         return;
       }
 
-      // Handle RPC responses (sessions.create, sessions.get, etc.)
+      // Handle RPC responses (sessions.create, sessions.get, sessions.list, etc.)
       if (data.type === "res" && (data as Record<string, unknown>).ok) {
         const payload = data.payload as Record<string, unknown> | undefined;
+
+        // sessions.list response
+        if (payload?.sessions && Array.isArray(payload.sessions) && payload.count !== undefined) {
+          setSessionList(
+            (payload.sessions as Array<Record<string, unknown>>).map((s) => ({
+              key: s.key as string,
+              displayName: s.displayName as string | undefined,
+              derivedTitle: s.derivedTitle as string | undefined,
+              lastMessagePreview: s.lastMessagePreview as string | undefined,
+              updatedAt: s.updatedAt as number | undefined,
+            })),
+          );
+          return;
+        }
 
         // sessions.create response
         if (payload?.key && typeof payload.key === "string" && payload.sessionId) {
@@ -120,6 +151,13 @@ export function useGateway(): UseGatewayReturn {
           setMessages([]);
           setPending(false);
           pendingIdRef.current = null;
+          // Refresh session list
+          ws.sendRpc("sessions.list", {
+            limit: 20,
+            includeDerivedTitles: true,
+            includeLastMessage: true,
+          });
+          return;
         }
 
         // sessions.get / chat.history response
@@ -287,6 +325,15 @@ export function useGateway(): UseGatewayReturn {
     });
   }, []);
 
+  const refreshSessions = useCallback(() => {
+    if (!wsRef.current) return;
+    wsRef.current.sendRpc("sessions.list", {
+      limit: 20,
+      includeDerivedTitles: true,
+      includeLastMessage: true,
+    });
+  }, []);
+
   return {
     connected,
     connectionError,
@@ -299,5 +346,7 @@ export function useGateway(): UseGatewayReturn {
     switchSession,
     createSession,
     loadSessionHistory,
+    sessionList,
+    refreshSessions,
   };
 }

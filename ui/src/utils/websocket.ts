@@ -57,13 +57,17 @@ export class GatewayWebSocket {
           return;
         }
 
-        // Step 3: Handle auth errors
-        if (data.type === "res" && !(data as Record<string, unknown>).ok) {
+        // Step 3: Handle auth errors (only during handshake)
+        if (
+          !this.handshakeComplete &&
+          data.type === "res" &&
+          !(data as Record<string, unknown>).ok
+        ) {
           this.notifyStatus(false, "Gateway 认证失败");
           return;
         }
 
-        // Forward other messages to handlers
+        // Forward all messages to handlers after handshake
         if (this.handshakeComplete) {
           this.messageHandlers.forEach((handler) => handler(data));
         }
