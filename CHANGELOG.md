@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.19] - 2026-03-20
+
+### Fixed
+
+- **Provider API key validation**: All 7 providers now validated — deepseek/moonshot/kimi/qwen/zhipu/openai use `GET /models` (zero token cost); minimax/anthropic use `POST /messages` — Phase 12.2
+- **Semver comparison**: `useUpdate` now uses proper semver compare; `1.9.0 < 1.10.0` no longer broken — Phase 13.2
+- **useConfig deep merge**: `updateConfig` now deep-merges nested objects, preventing sibling field loss on provider switch — Phase 15.3
+
+### Added
+
+- **React Error Boundary**: Root `<ErrorBoundary>` wraps the entire app; crashes show a 刷新页面 button instead of white screen — Phase 14.4
+- **Send timeout**: `chat.send` auto-clears pending state after 60s with no delta, shows 请求超时 error — Phase 15.2
+- **Test coverage**: 3 new tests — semver ordering, deep merge, timeout — Phase 15.7
+
+### Security
+
+- **API key masking**: `GET /api/config` now returns masked keys (last 4 chars only) — Phase 14.1
+- **Localhost binding**: Server now binds to `127.0.0.1` only, no LAN exposure — Phase 13.5
+- **Body size limit**: 1 MB max on all POST/PUT endpoints — Phase 15.6
+- **CLAUDE.md removed from git**: Added to `.gitignore` and untracked — Phase 13.1
+
+## [1.1.18] - 2026-03-20
+
+### Fixed
+
+- **Chat reply never displayed (always "...")**: Root cause: `state`/`message`/`runId` were in `event.payload`, not top-level. Fixed payload reading path — Phase 12.1
+- **Cross-client message sync**: Replaced `pendingIdRef` with `runIdToMsgId` Map; all gateway `chat` events now handled regardless of sender — Phase 16.1/16.3
+- **Handler registration race**: `GatewayWebSocket` now created in render body (lazy ref) so child effects can register handlers before parent effect fires — Phase 16.1
+- **Session key mismatch**: Removed strict sessionKey filter that was dropping valid events; server-authoritative `mainSessionKey` now synced via hello-ok snapshot — Phase 16.2
+- **secrets.reload**: Called on every WebSocket connect to force gateway to re-read auth-profiles.json — previously API key was not loaded on startup
+
+### Added
+
+- **Session history on connect**: `chat.history` loaded on every (re)connect — Phase 15.1/16.2
+- **Sessions list on connect**: `sessions.list` called on connect to populate sidebar — Phase 16.2
+
+## [1.1.16] - 2026-03-19
+
+### Fixed
+
+- **Onboarding bypass bug**: `isConfigured` guard moved to App-level `RequireConfig` wrapper
+- **secrets.reload RPC**: Added `operator.admin` scope (required by OpenClaw) and call on every WS connect
+
 ## [1.1.0] - 2026-03-19
 
 ### Fixed (v1.0.1 — v1.0.28)
