@@ -82,6 +82,31 @@ describe("useUpdate", () => {
     expect(result.current.versionInfo?.updateAvailable).toBe(false);
   });
 
+  it("correctly detects update when minor version crosses 10 (semver ordering)", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ version: "1.9.0" }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ tag_name: "v1.10.0" }),
+      } as Response);
+
+    const { result } = renderHook(() => useUpdate());
+
+    await act(async () => {
+      await result.current.checkForUpdates();
+    });
+
+    await waitFor(() => {
+      expect(result.current.checking).toBe(false);
+    });
+
+    // 1.10.0 > 1.9.0, updateAvailable must be true
+    expect(result.current.versionInfo?.updateAvailable).toBe(true);
+  });
+
   it("handles version check failure", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: false,

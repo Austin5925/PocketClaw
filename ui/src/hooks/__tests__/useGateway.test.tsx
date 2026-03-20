@@ -1,5 +1,5 @@
 import { renderHook, act } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
 import { useGateway } from "../useGateway";
 import { GatewayProvider } from "../GatewayContext";
 import type { ReactNode } from "react";
@@ -60,6 +60,14 @@ function Wrapper({ children }: { children: ReactNode }) {
   return <GatewayProvider>{children}</GatewayProvider>;
 }
 
+beforeAll(() => {
+  vi.useFakeTimers();
+});
+
+afterAll(() => {
+  vi.useRealTimers();
+});
+
 beforeEach(() => {
   wsInstances = [];
   vi.stubGlobal("WebSocket", MockWebSocket);
@@ -69,6 +77,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  vi.clearAllTimers();
 });
 
 function getLatestWs(): MockWebSocket {
@@ -179,6 +188,33 @@ describe("useGateway", () => {
 
     expect(result.current.messages).toEqual([]);
     expect(result.current.pending).toBe(false);
+  });
+
+  it("shows timeout error after 60s with no delta response", () => {
+    const { result } = renderHook(() => useGateway(), { wrapper: Wrapper });
+
+    const ws = getLatestWs();
+    act(() => {
+      ws.simulateHandshake();
+    });
+
+    act(() => {
+      result.current.sendMessage("Hello");
+    });
+
+    expect(result.current.pending).toBe(true);
+    expect(result.current.messages).toHaveLength(1);
+
+    // Advance timers by 60s without any delta arriving
+    act(() => {
+      vi.advanceTimersByTime(60000);
+    });
+
+    // Timeout should have fired — pending cleared, error message added
+    expect(result.current.pending).toBe(false);
+    const lastMsg = result.current.messages[result.current.messages.length - 1];
+    expect(lastMsg?.role).toBe("system");
+    expect(lastMsg?.content).toBe("请求超时，请重试");
   });
 
   it("ignores empty messages", () => {

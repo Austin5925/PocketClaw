@@ -63,6 +63,40 @@ describe("useConfig", () => {
     expect(result.current.isConfigured).toBe(false);
   });
 
+  it("deep merges nested fields on updateConfig (does not overwrite sibling keys)", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            agent: { model: "minimax/MiniMax-M2.7" },
+            minimax: { apiKey: "old-key" },
+            gateway: { port: 18789 },
+          }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true }),
+      } as Response);
+
+    const { result } = renderHook(() => useConfig());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    // Update only agent.model — gateway and minimax should be preserved
+    await act(async () => {
+      await result.current.updateConfig({ agent: { model: "deepseek/deepseek-chat" } });
+    });
+
+    expect(result.current.config?.agent?.model).toBe("deepseek/deepseek-chat");
+    // gateway must not be wiped out by the shallow-merge bug
+    expect((result.current.config as Record<string, unknown> | null)?.gateway).toEqual({
+      port: 18789,
+    });
+  });
+
   it("updates config via setModel", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
