@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.24] - 2026-03-20
+
+### Fixed
+
+- **macOS Gatekeeper "无法验证" warning**: Rewrote `Mac-Start.command` as a first-launch helper — double-clicking it runs `xattr -cr` to remove the quarantine flag from the entire PocketClaw folder, then opens `启动PocketClaw.app`. The `.command` file shows a friendlier "open in Terminal?" dialog (with a direct Open button) vs the .app's "can't verify" dialog that requires System Preferences. After running once, the .app can be opened directly without any warning.
+- **release.yml**: `Mac-Start.command` is now included in the mac zip (previously removed); `Mac-Menu.command` still excluded.
+
 ## [1.1.23] - 2026-03-20
 
 ### Fixed

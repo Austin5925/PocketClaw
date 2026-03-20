@@ -99,7 +99,8 @@ jobs:
           VERSION="${{ needs.check-version.outputs.version }}"
           rm -f "portable/启动PocketClaw.exe" 2>/dev/null || true
           rm -f portable/Windows-Start.bat portable/Windows-Menu.bat 2>/dev/null || true
-          rm -f portable/Mac-Start.command portable/Mac-Menu.command 2>/dev/null || true
+          rm -f portable/Mac-Menu.command 2>/dev/null || true
+          chmod +x portable/Mac-Start.command
 
           cd portable
           zip -r "../PocketClaw-v${VERSION}-mac.zip" . \
