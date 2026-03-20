@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.23] - 2026-03-20
+
+### Fixed
+
+- **Launcher: restore dangerouslyDisableDeviceAuth=true**: Belt-and-suspenders fix alongside v1.1.22 — even if `signChallenge` produces invalid keys, gateway won't verify device identity in local no-auth deployments (`gateway.auth.mode = "none"`). Removed in Phase 14.2 under the assumption that real Ed25519 would always work; restored after confirming it can silently fail.
+
 ## [1.1.22] - 2026-03-20
 
 ### Fixed
