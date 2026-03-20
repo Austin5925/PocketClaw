@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.33] - 2026-03-20
+
+### Security
+
+- **敏感文件权限收紧**: `openclaw.json`、`auth-profiles.json` 从 `0644` 改为 `0600`（仅所有者可读写），`.openclaw/` 目录从 `0755` 改为 `0700`，日志文件 `pocketclaw.log` 改为 `0600`
+- **Node.js 下载 SHA256 校验**: `setup.sh`、`setup.bat` 和 CI 构建中下载 Node.js 后验证 SHA256 哈希值，防止中间人攻击和镜像篡改
+- **固定 OpenClaw 版本**: `openclaw@latest` 改为 `openclaw@2026.3.13`，确保可复现构建，消除供应链风险
+- **HTTP 安全响应头**: 所有 HTTP 响应添加 `X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Content-Security-Policy`、`Referrer-Policy: no-referrer`
+- **移除环境变量 API key 传递**: 删除 `setProviderEnvVars()`，API key 仅通过 `auth-profiles.json` 和 `models.providers` 配置传递（环境变量在 `/proc/pid/environ` 可被读取）
+
+### Fixed
+
+- **无 API Key 可直接使用**: 移除配置模板中的默认 model（强制通过 onboarding 选择），Chat 页面发送消息和切换模型前校验当前 provider 有 API Key
+
 ## [1.1.32] - 2026-03-20
 
 ### Fixed

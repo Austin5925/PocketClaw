@@ -58,6 +58,10 @@ export function Chat() {
 
   const handleSend = () => {
     if (!input.trim() || pending) return;
+    if (!hasApiKey) {
+      showToast("请先配置 API Key 后再发送消息", "error");
+      return;
+    }
     sendMessage(input);
     setInput("");
     // Reset textarea height
@@ -75,9 +79,22 @@ export function Chat() {
     }
   };
 
+  const currentProviderId = currentModel.split("/")[0] ?? "";
+  const currentProviderCfg = currentProviderId
+    ? (config?.[currentProviderId] as Record<string, unknown> | undefined)
+    : undefined;
+  const hasApiKey = Boolean(currentProviderCfg?.apiKey);
+
   const handleModelChange = async (model: string) => {
     setShowModelSelect(false);
     const provider = model.split("/")[0] ?? "";
+    const providerCfg = provider
+      ? (config?.[provider] as Record<string, unknown> | undefined)
+      : undefined;
+    if (!providerCfg?.apiKey) {
+      showToast("请先在设置中配置该模型的 API Key", "error");
+      return;
+    }
     try {
       await updateConfig({ agent: { ...config?.agent, model }, [provider]: config?.[provider] });
       showToast(`已切换到 ${model.split("/").pop()}`, "success");
@@ -133,9 +150,13 @@ export function Chat() {
                       <button
                         key={s}
                         onClick={() => {
+                          if (!hasApiKey) {
+                            showToast("请先配置 API Key 后再发送消息", "error");
+                            return;
+                          }
                           sendMessage(s);
                         }}
-                        disabled={!connected || pending}
+                        disabled={!connected || pending || !hasApiKey}
                         className="rounded-full border border-gray-200 px-3 py-1.5 text-xs text-gray-500 transition-colors hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-40 dark:border-gray-600 dark:text-gray-400 dark:hover:border-indigo-500 dark:hover:text-indigo-400"
                       >
                         {s}
@@ -212,7 +233,7 @@ export function Chat() {
                   {/* Send */}
                   <button
                     onClick={handleSend}
-                    disabled={!input.trim() || pending || !connected}
+                    disabled={!input.trim() || pending || !connected || !hasApiKey}
                     className="rounded-lg bg-indigo-600 p-1.5 text-white transition-colors hover:bg-indigo-700 disabled:opacity-40"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

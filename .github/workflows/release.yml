@@ -65,18 +65,27 @@ jobs:
           NODE_VER="v22.22.1"
           mkdir -p portable/app/runtime
 
-          curl -fsSL "https://nodejs.org/dist/$NODE_VER/node-$NODE_VER-darwin-arm64.tar.xz" | tar -xJ
+          # Download SHASUMS for verification
+          curl -fsSL "https://nodejs.org/dist/$NODE_VER/SHASUMS256.txt" -o SHASUMS256.txt
+
+          curl -fsSL "https://nodejs.org/dist/$NODE_VER/node-$NODE_VER-darwin-arm64.tar.xz" -o node-arm64.tar.xz
+          grep "node-$NODE_VER-darwin-arm64.tar.xz" SHASUMS256.txt | shasum -a 256 -c -
+          tar -xJf node-arm64.tar.xz
           mv "node-$NODE_VER-darwin-arm64" portable/app/runtime/node-darwin-arm64
 
-          curl -fsSL "https://nodejs.org/dist/$NODE_VER/node-$NODE_VER-darwin-x64.tar.xz" | tar -xJ
+          curl -fsSL "https://nodejs.org/dist/$NODE_VER/node-$NODE_VER-darwin-x64.tar.xz" -o node-x64.tar.xz
+          grep "node-$NODE_VER-darwin-x64.tar.xz" SHASUMS256.txt | shasum -a 256 -c -
+          tar -xJf node-x64.tar.xz
           mv "node-$NODE_VER-darwin-x64" portable/app/runtime/node-darwin-x64
+
+          rm -f node-arm64.tar.xz node-x64.tar.xz SHASUMS256.txt
 
       - name: Install OpenClaw
         run: |
           mkdir -p portable/app/core
           cd portable/app/core
           npm init -y
-          npm install openclaw
+          npm install openclaw@2026.3.13
 
       - name: Pre-install ClawHub skills
         run: |
@@ -172,10 +181,13 @@ jobs:
         shell: bash
         run: |
           NODE_VER="v22.22.1"
+          NODE_SHA256="877cb93829e14fffbbc7903e7d8037336c9a79f3ea43c5d0b8c2379b79da56de"
           mkdir -p portable/app/runtime
           curl -fsSL "https://nodejs.org/dist/$NODE_VER/node-$NODE_VER-win-x64.zip" -o node-win.zip
+          echo "$NODE_SHA256  node-win.zip" | sha256sum -c -
           unzip -q node-win.zip
           mv "node-$NODE_VER-win-x64" portable/app/runtime/node-win-x64
+          rm -f node-win.zip
 
       - name: Install OpenClaw
         shell: bash
@@ -183,7 +195,7 @@ jobs:
           mkdir -p portable/app/core
           cd portable/app/core
           npm init -y
-          npm install openclaw
+          npm install openclaw@2026.3.13
 
       - name: Pre-install ClawHub skills
         shell: bash

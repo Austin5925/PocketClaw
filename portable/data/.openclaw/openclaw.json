@@ -1,7 +1,4 @@
 {
-  "agent": {
-    "model": "minimax/MiniMax-M2.7"
-  },
   "gateway": {
     "port": 18789,
     "host": "127.0.0.1"

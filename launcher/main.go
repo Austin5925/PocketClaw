@@ -76,7 +76,6 @@ func main() {
 
 	logMsg("正在同步配置...")
 	syncConfigToOpenClaw()
-	setProviderEnvVars()
 	writeAuthProfiles()
 
 	logMsg("正在启动 AI 引擎...")
@@ -193,7 +192,7 @@ func resolveBaseDir() {
 func setupLogging() {
 	logPath := filepath.Join(baseDir, "data", "pocketclaw.log")
 	var err error
-	logFile, err = os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	logFile, err = os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		logFile = os.Stderr
 		return
@@ -407,44 +406,17 @@ func syncConfigToOpenClaw() {
 	internalConfig["models"] = models
 
 	// Write back
-	os.MkdirAll(internalDir, 0755)
+	os.MkdirAll(internalDir, 0700)
 	outData, err := json.MarshalIndent(internalConfig, "", "  ")
 	if err != nil {
 		logMsg("无法序列化配置: " + err.Error())
 		return
 	}
-	if err := os.WriteFile(internalConfigPath, outData, 0644); err != nil {
+	if err := os.WriteFile(internalConfigPath, outData, 0600); err != nil {
 		logMsg("无法写入内部配置: " + err.Error())
 		return
 	}
 	logMsg("配置同步完成")
-}
-
-// setProviderEnvVars sets API keys as env vars so OpenClaw's agent auth
-// can find them via the env var fallback chain.
-// Reads provider→envVar mappings from shared-config.json (single source of truth).
-func setProviderEnvVars() {
-	configPath := filepath.Join(baseDir, "data", ".openclaw", "openclaw.json")
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return
-	}
-	var config map[string]interface{}
-	if err := json.Unmarshal(data, &config); err != nil {
-		return
-	}
-
-	providers := loadSharedProviders()
-	for _, p := range providers {
-		if p.EnvVar == "" {
-			continue
-		}
-		if providerCfg, ok := config[p.ID].(map[string]interface{}); ok {
-			if apiKey, ok := providerCfg["apiKey"].(string); ok && apiKey != "" {
-				os.Setenv(p.EnvVar, apiKey)
-			}
-		}
-	}
 }
 
 // loadProviderEntries loads all provider configs (baseUrl, api, models) from shared-config.json.
@@ -557,13 +529,13 @@ func writeAuthProfiles() {
 	}
 
 	agentDir := filepath.Join(baseDir, "data", ".openclaw", ".openclaw", "agents", "main", "agent")
-	os.MkdirAll(agentDir, 0755)
+	os.MkdirAll(agentDir, 0700)
 	outData, err := json.MarshalIndent(store, "", "  ")
 	if err != nil {
 		return
 	}
 	authPath := filepath.Join(agentDir, "auth-profiles.json")
-	os.WriteFile(authPath, outData, 0644)
+	os.WriteFile(authPath, outData, 0600)
 	logMsg("auth-profiles.json 已写入")
 }
 

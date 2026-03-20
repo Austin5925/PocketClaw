@@ -7,12 +7,38 @@ RUNTIME_DIR="$BASE_DIR/app/runtime"
 CORE_DIR="$BASE_DIR/app/core"
 
 NODE_VERSION="22.22.1"
+OPENCLAW_VERSION="2026.3.13"
 # Chinese mirror (faster in mainland China), fall back to official
 NODE_MIRROR_URL="https://npmmirror.com/mirrors/node/v${NODE_VERSION}"
 NODE_OFFICIAL_URL="https://nodejs.org/dist/v${NODE_VERSION}"
 
+# SHA256 checksums from https://nodejs.org/dist/v22.22.1/SHASUMS256.txt
+declare -A NODE_SHA256=(
+    ["darwin-arm64"]="679ad4966339e4ef4900f57996714864e4211b898825bb840c3086c419fbcef2"
+    ["darwin-x64"]="07b13722d558790fca20bb1ecf61bde24b7a4863111f7be77fc57251a407359a"
+    ["win-x64"]="877cb93829e14fffbbc7903e7d8037336c9a79f3ea43c5d0b8c2379b79da56de"
+)
+
 log() { echo "[PocketClaw Setup] $*"; }
 error() { echo "[ERROR] $*" >&2; exit 1; }
+
+verify_sha256() {
+    local file="$1"
+    local expected="$2"
+    local actual
+    if command -v shasum &>/dev/null; then
+        actual=$(shasum -a 256 "$file" | awk '{print $1}')
+    elif command -v sha256sum &>/dev/null; then
+        actual=$(sha256sum "$file" | awk '{print $1}')
+    else
+        log "WARNING: No SHA256 tool found, skipping verification"
+        return 0
+    fi
+    if [ "$actual" != "$expected" ]; then
+        error "SHA256 verification failed for $(basename "$file")\n  Expected: $expected\n  Got:      $actual"
+    fi
+    log "SHA256 verified: $(basename "$file")"
+}
 
 download_node() {
     local platform="$1"
@@ -29,36 +55,44 @@ download_node() {
     local filename="node-v${NODE_VERSION}-${platform}-${arch}.${ext}"
     local mirror_url="${NODE_MIRROR_URL}/${filename}"
     local official_url="${NODE_OFFICIAL_URL}/${filename}"
+    local hash_key="${platform}-${arch}"
+    local expected_hash="${NODE_SHA256[$hash_key]:-}"
 
     log "Downloading $filename ..."
     mkdir -p "$target_dir"
 
-    # Download to /tmp, then move — works on both macOS BSD tar and GNU tar
+    # Download to temp file first (for SHA256 verification)
+    local tmpfile="/tmp/pocketclaw-${filename}"
+
+    # Try Chinese mirror first, fall back to official
+    if ! curl -fSL --connect-timeout 10 "$mirror_url" -o "$tmpfile" 2>/dev/null; then
+        curl -fSL "$official_url" -o "$tmpfile"
+    fi
+
+    # Verify SHA256
+    if [ -n "$expected_hash" ]; then
+        verify_sha256 "$tmpfile" "$expected_hash"
+    fi
+
+    # Extract
     if [ "$ext" = "tar.gz" ]; then
         local tmpdir="/tmp/pocketclaw-node-$$"
         mkdir -p "$tmpdir"
-        # Try Chinese mirror first, fall back to official
-        if ! curl -fSL --connect-timeout 10 "$mirror_url" | tar xz -C "$tmpdir" 2>/dev/null; then
-            curl -fSL "$official_url" | tar xz -C "$tmpdir"
-        fi
+        tar xz -C "$tmpdir" < "$tmpfile"
         mv "$tmpdir/node-v${NODE_VERSION}-${platform}-${arch}"/* "$target_dir/"
         rm -rf "$tmpdir"
     elif [ "$ext" = "zip" ]; then
-        local tmpzip="/tmp/${filename}"
-        if ! curl -fSL --connect-timeout 10 "$mirror_url" -o "$tmpzip" 2>/dev/null; then
-            curl -fSL "$official_url" -o "$tmpzip"
-        fi
-        unzip -qo "$tmpzip" -d "/tmp"
+        unzip -qo "$tmpfile" -d "/tmp"
         mv "/tmp/node-v${NODE_VERSION}-${platform}-${arch}"/* "$target_dir/"
-        rm -f "$tmpzip"
         rm -rf "/tmp/node-v${NODE_VERSION}-${platform}-${arch}"
     fi
 
+    rm -f "$tmpfile"
     log "$dirname downloaded successfully"
 }
 
 install_openclaw() {
-    log "Installing OpenClaw..."
+    log "Installing OpenClaw v${OPENCLAW_VERSION}..."
     mkdir -p "$CORE_DIR"
 
     local node_bin=""
@@ -86,7 +120,7 @@ install_openclaw() {
 
     log "Using Node.js: $("$node_bin" --version)"
 
-    "$node_bin" "$npm_bin" install --prefix "$CORE_DIR" openclaw@latest
+    "$node_bin" "$npm_bin" install --prefix "$CORE_DIR" "openclaw@${OPENCLAW_VERSION}"
 
     log "OpenClaw installed successfully"
     "$node_bin" "$npm_bin" list --prefix "$CORE_DIR" openclaw 2>/dev/null || true

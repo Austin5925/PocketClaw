@@ -28,6 +28,14 @@ const MIME_TYPES = {
   ".ttf": "font/ttf",
 };
 
+const SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "no-referrer",
+  "Content-Security-Policy":
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws://localhost:* http://localhost:*; font-src 'self'",
+};
+
 const SHARED_CONFIG = JSON.parse(
   fs.readFileSync(path.join(SCRIPT_DIR, "shared-config.json"), "utf-8"),
 );
@@ -39,7 +47,7 @@ function serveStatic(res, filePath) {
 
   try {
     const content = fs.readFileSync(filePath);
-    const headers = { "Content-Type": contentType };
+    const headers = { "Content-Type": contentType, ...SECURITY_HEADERS };
     // Prevent browser from caching HTML (so updates take effect immediately)
     if (ext === ".html") {
       headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
@@ -50,6 +58,15 @@ function serveStatic(res, filePath) {
     return false;
   }
   return true;
+}
+
+/** Write JSON response with security headers. */
+function jsonResponse(res, statusCode, data) {
+  res.writeHead(statusCode, {
+    "Content-Type": "application/json",
+    ...SECURITY_HEADERS,
+  });
+  res.end(JSON.stringify(data));
 }
 
 // Build provider ID → OpenClaw provider name mapping from shared-config.json.
@@ -91,11 +108,11 @@ function syncAuthProfiles(config) {
     "main",
     "agent",
   );
-  fs.mkdirSync(agentDir, { recursive: true });
+  fs.mkdirSync(agentDir, { recursive: true, mode: 0o700 });
   fs.writeFileSync(
     path.join(agentDir, "auth-profiles.json"),
     JSON.stringify(store, null, 2),
-    "utf-8",
+    { encoding: "utf-8", mode: 0o600 },
   );
 }
 
@@ -160,11 +177,11 @@ function syncInternalConfig(config) {
     };
   }
 
-  fs.mkdirSync(internalDir, { recursive: true });
+  fs.mkdirSync(internalDir, { recursive: true, mode: 0o700 });
   fs.writeFileSync(
     internalPath,
     JSON.stringify(internal, null, 2),
-    "utf-8",
+    { encoding: "utf-8", mode: 0o600 },
   );
 }
 
@@ -189,11 +206,9 @@ function handleApiConfig(req, res) {
   if (req.method === "GET") {
     try {
       const raw = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(maskApiKeys(raw)));
+      jsonResponse(res, 200, maskApiKeys(raw));
     } catch {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Config not found" }));
+      jsonResponse(res, 404, { error: "Config not found" });
     }
     return;
   }
@@ -202,24 +217,22 @@ function handleApiConfig(req, res) {
     readBody(req, res, (body) => {
       try {
         const parsed = JSON.parse(body);
-        fs.mkdirSync(path.dirname(configPath), { recursive: true });
-        fs.writeFileSync(configPath, body, "utf-8");
+        fs.mkdirSync(path.dirname(configPath), { recursive: true, mode: 0o700 });
+        fs.writeFileSync(configPath, body, { encoding: "utf-8", mode: 0o600 });
 
         // Sync to OpenClaw auth store and internal config
         syncAuthProfiles(parsed);
         syncInternalConfig(parsed);
 
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: true }));
+        jsonResponse(res, 200, { success: true });
       } catch {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Invalid JSON" }));
+        jsonResponse(res, 400, { error: "Invalid JSON" });
       }
     });
     return;
   }
 
-  res.writeHead(405);
+  res.writeHead(405, SECURITY_HEADERS);
   res.end();
 }
 
@@ -227,11 +240,9 @@ function handleApiVersion(res) {
   const versionPath = path.join(BASE_DIR, "version.txt");
   try {
     const version = fs.readFileSync(versionPath, "utf-8").trim();
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ version }));
+    jsonResponse(res, 200, { version });
   } catch {
-    res.writeHead(500, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Version file not found" }));
+    jsonResponse(res, 500, { error: "Version file not found" });
   }
 }
 
@@ -244,19 +255,15 @@ function handleApiHealth(res) {
       let data = "";
       gwRes.on("data", (chunk) => (data += chunk));
       gwRes.on("end", () => {
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(
-          JSON.stringify({
-            ui: "ok",
-            gateway: "ok",
-            gatewayResponse: data,
-          }),
-        );
+        jsonResponse(res, 200, {
+          ui: "ok",
+          gateway: "ok",
+          gatewayResponse: data,
+        });
       });
     })
     .on("error", () => {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ui: "ok", gateway: "unreachable" }));
+      jsonResponse(res, 200, { ui: "ok", gateway: "unreachable" });
     });
 }
 
@@ -276,8 +283,7 @@ function readBody(req, res, callback) {
   req.on("data", (chunk) => {
     size += chunk.length;
     if (size > MAX_BODY_SIZE) {
-      res.writeHead(413, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Payload too large" }));
+      jsonResponse(res, 413, { error: "Payload too large" });
       req.destroy();
       return;
     }
@@ -320,23 +326,19 @@ function validateKeyRequest(validator, apiKey, model, res) {
   const apiReq = https.request(options, (apiRes) => {
     apiRes.resume(); // drain body
     if (apiRes.statusCode === 401 || apiRes.statusCode === 403) {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ valid: false, error: "API Key 无效，请检查后重试" }));
+      jsonResponse(res, 200, { valid: false, error: "API Key 无效，请检查后重试" });
     } else {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ valid: true }));
+      jsonResponse(res, 200, { valid: true });
     }
   });
 
   apiReq.on("error", () => {
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ valid: true }));
+    jsonResponse(res, 200, { valid: true });
   });
 
   apiReq.on("timeout", () => {
     apiReq.destroy();
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ valid: true }));
+    jsonResponse(res, 200, { valid: true });
   });
 
   if (postData) apiReq.write(postData);
@@ -345,7 +347,7 @@ function validateKeyRequest(validator, apiKey, model, res) {
 
 function handleApiValidateKey(req, res) {
   if (req.method !== "POST") {
-    res.writeHead(405);
+    res.writeHead(405, SECURITY_HEADERS);
     res.end();
     return;
   }
@@ -355,14 +357,12 @@ function handleApiValidateKey(req, res) {
       const { provider, apiKey, model } = JSON.parse(body);
       const validator = PROVIDER_VALIDATORS[provider];
       if (!validator || !apiKey) {
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ valid: true }));
+        jsonResponse(res, 200, { valid: true });
         return;
       }
       validateKeyRequest(validator, apiKey, model, res);
     } catch {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Invalid request" }));
+      jsonResponse(res, 400, { error: "Invalid request" });
     }
   });
 }
@@ -382,7 +382,7 @@ const server = http.createServer((req, res) => {
   const indexPath = path.join(UI_DIR, "index.html");
   if (serveStatic(res, indexPath)) return;
 
-  res.writeHead(404);
+  res.writeHead(404, SECURITY_HEADERS);
   res.end("Not Found");
 });
 
@@ -393,14 +393,6 @@ server.on("upgrade", (req, socket, head) => {
 // ---------------------------------------------------------------------------
 // --supervisor mode: manage gateway lifecycle (used by .bat / .command launcher)
 // ---------------------------------------------------------------------------
-
-function setProviderEnvVars(config) {
-  for (const p of SHARED_CONFIG.providers) {
-    if (!p.envVar) continue;
-    const apiKey = config[p.id]?.apiKey;
-    if (apiKey) process.env[p.envVar] = apiKey;
-  }
-}
 
 function findOpenClawEntry() {
   const coreDir = path.join(BASE_DIR, "app", "core", "node_modules", "openclaw");
@@ -455,7 +447,6 @@ if (process.argv.includes("--supervisor")) {
   if (config && Object.keys(config).length > 0) {
     syncAuthProfiles(config);
     syncInternalConfig(config);
-    setProviderEnvVars(config);
     log("配置同步完成");
   }
 
