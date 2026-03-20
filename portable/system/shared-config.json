@@ -3,10 +3,10 @@
     { "id": "minimax",  "envVar": "MINIMAX_API_KEY",  "validateUrl": "https://api.minimaxi.com/anthropic/v1/messages", "validateMethod": "POST", "validateAuth": "x-api-key" },
     { "id": "deepseek", "envVar": "DEEPSEEK_API_KEY",  "validateUrl": "https://api.deepseek.com/models",                 "validateMethod": "GET",  "validateAuth": "bearer" },
     { "id": "moonshot", "envVar": "MOONSHOT_API_KEY",  "validateUrl": "https://api.moonshot.cn/v1/models",              "validateMethod": "GET",  "validateAuth": "bearer" },
-    { "id": "kimi",     "envVar": "MOONSHOT_API_KEY",  "validateUrl": "https://api.moonshot.cn/v1/models",              "validateMethod": "GET",  "validateAuth": "bearer" },
+    { "id": "kimi",     "openclawId": "moonshot", "envVar": "MOONSHOT_API_KEY",  "validateUrl": "https://api.moonshot.cn/v1/models",              "validateMethod": "GET",  "validateAuth": "bearer" },
     { "id": "qwen",     "envVar": "DASHSCOPE_API_KEY", "validateUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1/models", "validateMethod": "GET", "validateAuth": "bearer" },
     { "id": "zhipu",    "envVar": "ZHIPUAI_API_KEY",   "validateUrl": "https://open.bigmodel.cn/api/paas/v4/models",   "validateMethod": "GET",  "validateAuth": "bearer" },
-    { "id": "glm",      "envVar": "ZHIPUAI_API_KEY",   "validateUrl": "https://open.bigmodel.cn/api/paas/v4/models",   "validateMethod": "GET",  "validateAuth": "bearer" },
+    { "id": "glm",      "openclawId": "zhipu",    "envVar": "ZHIPUAI_API_KEY",   "validateUrl": "https://open.bigmodel.cn/api/paas/v4/models",   "validateMethod": "GET",  "validateAuth": "bearer" },
     { "id": "openai",   "envVar": "OPENAI_API_KEY",    "validateUrl": "https://api.openai.com/v1/models",              "validateMethod": "GET",  "validateAuth": "bearer" },
     { "id": "anthropic","envVar": "ANTHROPIC_API_KEY", "validateUrl": "https://api.anthropic.com/v1/messages",         "validateMethod": "POST", "validateAuth": "x-api-key" }
   ],

@@ -52,10 +52,13 @@ function serveStatic(res, filePath) {
   return true;
 }
 
-// Map our UI provider IDs to OpenClaw provider names.
-// OpenClaw resolves auth by matching the provider field in auth-profiles
-// against the model string prefix (e.g. "moonshot/kimi-k2.5" → provider "moonshot").
-const OPENCLAW_PROVIDER = { kimi: "moonshot", glm: "zhipu" };
+// Build provider ID → OpenClaw provider name mapping from shared-config.json.
+// Providers with an "openclawId" field use that; others default to their own "id".
+const OPENCLAW_PROVIDER = Object.fromEntries(
+  SHARED_CONFIG.providers
+    .filter((p) => p.openclawId)
+    .map((p) => [p.id, p.openclawId]),
+);
 
 /**
  * Write auth-profiles.json for the agent auth store.
@@ -96,9 +99,13 @@ function syncAuthProfiles(config) {
   );
 }
 
-// Map our UI provider IDs to the config key in the user's config object.
-// e.g. OpenClaw provider "moonshot" → user config key "kimi"
-const CONFIG_KEY_FOR_PROVIDER = { moonshot: "kimi", zhipu: "glm" };
+// Reverse mapping: OpenClaw provider name → UI config key.
+// e.g. "moonshot" → "kimi" (so syncInternalConfig can find the API key).
+const CONFIG_KEY_FOR_PROVIDER = Object.fromEntries(
+  SHARED_CONFIG.providers
+    .filter((p) => p.openclawId)
+    .map((p) => [p.openclawId, p.id]),
+);
 
 /**
  * Sync model + all provider configs to OpenClaw's internal config.

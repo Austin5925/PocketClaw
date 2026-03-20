@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-BASE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+BASE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 RUNTIME_DIR="$BASE_DIR/app/runtime"
 CORE_DIR="$BASE_DIR/app/core"
 

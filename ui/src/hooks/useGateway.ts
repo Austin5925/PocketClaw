@@ -87,9 +87,17 @@ export function useGateway(): UseGatewayReturn {
     }
   }, [mainSessionKey]);
 
-  // On connect: load sessions list + history for current session
+  // On (re)connect: clear stale pending state, reload sessions + history
   useEffect(() => {
     if (connected) {
+      // Clear any in-flight state from before the disconnect
+      runIdToMsgId.current.clear();
+      if (sendTimeoutRef.current) {
+        clearTimeout(sendTimeoutRef.current);
+        sendTimeoutRef.current = null;
+      }
+      setPending(false);
+
       sendRpc("sessions.list", {
         limit: 20,
         includeDerivedTitles: true,

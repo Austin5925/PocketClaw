@@ -36,15 +36,27 @@ func main() {
 
 	nodeBin := detectNode()
 	if nodeBin == "" {
-		showError("运行环境不完整：Node.js 未找到。\n请重新获取 PocketClaw 完整版本。")
-		return
+		logMsg("Node.js 未找到，尝试自动下载...")
+		if autoSetup("node") {
+			nodeBin = detectNode()
+		}
+		if nodeBin == "" {
+			showError("运行环境不完整：Node.js 未找到。\n请重新获取 PocketClaw 完整版本。")
+			return
+		}
 	}
 	logMsg("Node.js: " + nodeBin)
 
 	openclawEntry := detectOpenClawEntry()
 	if openclawEntry == "" {
-		showError("运行环境不完整：AI 引擎未找到。\n请重新获取 PocketClaw 完整版本。")
-		return
+		logMsg("OpenClaw 未找到，尝试自动安装...")
+		if autoSetup("openclaw") {
+			openclawEntry = detectOpenClawEntry()
+		}
+		if openclawEntry == "" {
+			showError("运行环境不完整：AI 引擎未找到。\n请重新获取 PocketClaw 完整版本。")
+			return
+		}
 	}
 	logMsg("OpenClaw: " + openclawEntry)
 
@@ -356,24 +368,32 @@ func syncConfigToOpenClaw() {
 		modProviders = make(map[string]interface{})
 	}
 
+	// Build reverse mapping: OpenClaw provider name → UI config key
+	// e.g. "moonshot" → "kimi" (from shared-config.json openclawId field)
+	configKeyFor := make(map[string]string)
+	for _, p := range loadSharedProviders() {
+		if p.OpenClawID != "" {
+			configKeyFor[p.OpenClawID] = p.ID
+		}
+	}
+
 	providerEntries := loadProviderEntries()
 	for providerKey, entry := range providerEntries {
-		// Resolve API key: UI stores keys under "kimi"/"glm" but OpenClaw uses "moonshot"/"zhipu"
+		// Resolve API key: check UI config key first, then OpenClaw provider name
 		configKey := providerKey
-		if providerKey == "moonshot" {
-			configKey = "kimi"
-		} else if providerKey == "zhipu" {
-			configKey = "glm"
+		if mapped, ok := configKeyFor[providerKey]; ok {
+			configKey = mapped
 		}
 		if providerCfg, ok := ourConfig[configKey].(map[string]interface{}); ok {
 			if apiKey, ok := providerCfg["apiKey"].(string); ok && apiKey != "" {
 				entry["apiKey"] = apiKey
 			}
 		}
-		// Also check if the key is stored under the OpenClaw provider name directly
-		if providerCfg, ok := ourConfig[providerKey].(map[string]interface{}); ok {
-			if apiKey, ok := providerCfg["apiKey"].(string); ok && apiKey != "" {
-				entry["apiKey"] = apiKey
+		if configKey != providerKey {
+			if providerCfg, ok := ourConfig[providerKey].(map[string]interface{}); ok {
+				if apiKey, ok := providerCfg["apiKey"].(string); ok && apiKey != "" {
+					entry["apiKey"] = apiKey
+				}
 			}
 		}
 		modProviders[providerKey] = entry
@@ -457,10 +477,23 @@ func loadProviderEntries() map[string]map[string]interface{} {
 
 // loadSharedProviders reads the provider list from system/shared-config.json.
 // Falls back to an empty list on error (setProviderEnvVars / writeAuthProfiles become no-ops).
-func loadSharedProviders() []struct {
-	ID     string `json:"id"`
-	EnvVar string `json:"envVar"`
-} {
+type sharedProvider struct {
+	ID         string `json:"id"`
+	OpenClawID string `json:"openclawId"`
+	EnvVar     string `json:"envVar"`
+}
+
+// ResolvedID returns the OpenClaw provider name (openclawId if set, otherwise id).
+func (p sharedProvider) ResolvedID() string {
+	if p.OpenClawID != "" {
+		return p.OpenClawID
+	}
+	return p.ID
+}
+
+// loadSharedProviders reads the provider list from system/shared-config.json.
+// Falls back to an empty list on error (setProviderEnvVars / writeAuthProfiles become no-ops).
+func loadSharedProviders() []sharedProvider {
 	cfgPath := filepath.Join(baseDir, "system", "shared-config.json")
 	data, err := os.ReadFile(cfgPath)
 	if err != nil {
@@ -468,10 +501,7 @@ func loadSharedProviders() []struct {
 		return nil
 	}
 	var sc struct {
-		Providers []struct {
-			ID     string `json:"id"`
-			EnvVar string `json:"envVar"`
-		} `json:"providers"`
+		Providers []sharedProvider `json:"providers"`
 	}
 	if err := json.Unmarshal(data, &sc); err != nil {
 		logMsg("无法解析 shared-config.json: " + err.Error())
@@ -493,19 +523,11 @@ func writeAuthProfiles() {
 		return
 	}
 
-	// Map UI provider IDs to OpenClaw provider names.
-	// OpenClaw resolves auth by matching provider against model string prefix
-	// (e.g. "moonshot/kimi-k2.5" → provider "moonshot").
-	openclawProvider := map[string]string{"kimi": "moonshot", "glm": "zhipu"}
-
 	profiles := make(map[string]interface{})
 	for _, p := range loadSharedProviders() {
 		if providerCfg, ok := config[p.ID].(map[string]interface{}); ok {
 			if apiKey, ok := providerCfg["apiKey"].(string); ok && apiKey != "" {
-				provider := p.ID
-				if mapped, ok := openclawProvider[p.ID]; ok {
-					provider = mapped
-				}
+				provider := p.ResolvedID()
 				profileKey := provider + ":default"
 				// Don't overwrite if already set by a higher-priority entry
 				if profiles[profileKey] != nil {
@@ -538,6 +560,41 @@ func writeAuthProfiles() {
 	authPath := filepath.Join(agentDir, "auth-profiles.json")
 	os.WriteFile(authPath, outData, 0644)
 	logMsg("auth-profiles.json 已写入")
+}
+
+// autoSetup runs system/setup.sh (macOS) or system/setup.bat (Windows)
+// to download missing runtime components (Node.js or OpenClaw).
+func autoSetup(component string) bool {
+	var setupCmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		setupPath := filepath.Join(baseDir, "system", "setup.sh")
+		if !fileExists(setupPath) {
+			logMsg("setup.sh 未找到，无法自动初始化")
+			return false
+		}
+		logMsg("正在运行 setup.sh " + component + " ...")
+		setupCmd = exec.Command("bash", setupPath, component)
+	case "windows":
+		setupPath := filepath.Join(baseDir, "system", "setup.bat")
+		if !fileExists(setupPath) {
+			logMsg("setup.bat 未找到，无法自动初始化")
+			return false
+		}
+		logMsg("正在运行 setup.bat " + component + " ...")
+		setupCmd = exec.Command("cmd", "/c", setupPath, component)
+	default:
+		return false
+	}
+	setupCmd.Dir = baseDir
+	setupCmd.Stdout = logFile
+	setupCmd.Stderr = logFile
+	if err := setupCmd.Run(); err != nil {
+		logMsg("自动初始化失败: " + err.Error())
+		return false
+	}
+	logMsg("自动初始化完成")
+	return true
 }
 
 func fileExists(path string) bool {

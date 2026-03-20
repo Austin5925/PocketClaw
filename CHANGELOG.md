@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.31] - 2026-03-20
+
+### Fixed
+
+- **Mac "Node.js 未找到" (P0)**: `setup.sh` 的 `BASE_DIR` 路径计算错误（`../..` 跳了两级，应该只跳一级 `..`），导致 Node.js 下载到错误目录。同时启动器新增自动初始化：当 Node.js 或 OpenClaw 缺失时自动调用 `setup.sh` / `setup.bat` 下载，无需用户手动操作
+- **WebSocket 断线重连后 pending 状态卡死**: 重连成功后现在会清理 `runIdToMsgId`、取消 send timeout、重置 pending 状态，再重新加载 history
+
+### Changed
+
+- **隐藏 Channels / Skills 页面**: OpenClaw 协议仅支持只读状态 RPC，无管理操作能力。移除侧栏入口避免用户困惑，保留 History 页面（sessions RPC 完整支持交互）
+- **Provider 映射集中化**: `shared-config.json` providers 新增 `openclawId` 字段（kimi→moonshot, glm→zhipu），server.js 和 launcher 从中读取而非各自硬编码，消除 3 文件 2 语言的映射散布
+
+### Added
+
+- **Server API 集成测试**: 15 个测试覆盖 `/api/config` CRUD、`/api/version`、`/api/health`、`/api/validate-key`、静态文件服务、SPA fallback，使用 Node.js 内置 test runner
+
 ## [1.1.30] - 2026-03-20
 
 ### Fixed

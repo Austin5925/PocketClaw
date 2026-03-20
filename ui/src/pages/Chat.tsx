@@ -3,8 +3,6 @@ import { useLocation } from "react-router-dom";
 import { ChatBubble } from "../components/ChatBubble";
 import { MainLayout } from "../layouts/MainLayout";
 import { useGateway } from "../hooks/useGateway";
-import { Channels } from "./Channels";
-import { Skills } from "./Skills";
 import { History } from "./History";
 import { MODEL_PROVIDERS } from "../utils/config";
 import { useConfig } from "../hooks/useConfig";
@@ -96,10 +94,8 @@ export function Chat() {
       onNewChat={() => createSession()}
       sessions={sessionList}
     >
-      {activePage === "/channels" && <Channels />}
-      {activePage === "/skills" && <Skills />}
       {activePage === "/history" && <History />}
-      {(activePage === "/" || !["/channels", "/skills", "/history"].includes(activePage)) && (
+      {(activePage === "/" || activePage !== "/history") && (
         <>
           {/* Chat header */}
           <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2 dark:border-gray-700 dark:bg-gray-800">
