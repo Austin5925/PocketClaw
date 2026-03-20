@@ -124,6 +124,14 @@ function syncInternalConfig(config) {
     // File doesn't exist yet, start fresh
   }
 
+  // Local-only: no auth + no device identity checks
+  if (!internal.gateway) internal.gateway = {};
+  if (!internal.gateway.auth) internal.gateway.auth = {};
+  internal.gateway.auth.mode = "none";
+  if (!internal.gateway.controlUi) internal.gateway.controlUi = {};
+  internal.gateway.controlUi.allowInsecureAuth = true;
+  internal.gateway.controlUi.dangerouslyDisableDeviceAuth = true;
+
   const model = config.agent?.model;
   if (model) {
     if (!internal.agents) internal.agents = {};
@@ -382,9 +390,159 @@ server.on("upgrade", (req, socket, head) => {
   createProxyServer(req, socket, head, GATEWAY_HOST, GATEWAY_PORT);
 });
 
-server.listen(UI_PORT, "127.0.0.1", () => {
-  console.log(`[PocketClaw UI] Server running at http://localhost:${UI_PORT}`);
-  console.log(
-    `[PocketClaw UI] Gateway proxy: ws://localhost:${UI_PORT}/ws -> ws://${GATEWAY_HOST}:${GATEWAY_PORT}`,
+// ---------------------------------------------------------------------------
+// --supervisor mode: manage gateway lifecycle (used by .bat / .command launcher)
+// ---------------------------------------------------------------------------
+
+function setProviderEnvVars(config) {
+  for (const p of SHARED_CONFIG.providers) {
+    if (!p.envVar) continue;
+    const apiKey = config[p.id]?.apiKey;
+    if (apiKey) process.env[p.envVar] = apiKey;
+  }
+}
+
+function findOpenClawEntry() {
+  const coreDir = path.join(BASE_DIR, "app", "core", "node_modules", "openclaw");
+  const pkgPath = path.join(coreDir, "package.json");
+  try {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+    // Try bin field first
+    if (typeof pkg.bin === "string") {
+      const entry = path.join(coreDir, pkg.bin);
+      if (fs.existsSync(entry)) return entry;
+    } else if (typeof pkg.bin === "object" && pkg.bin !== null) {
+      for (const v of Object.values(pkg.bin)) {
+        const entry = path.join(coreDir, v);
+        if (fs.existsSync(entry)) return entry;
+      }
+    }
+    // Fallback to main
+    if (pkg.main) {
+      const entry = path.join(coreDir, pkg.main);
+      if (fs.existsSync(entry)) return entry;
+    }
+  } catch { /* fall through */ }
+  // Last resort: common patterns
+  for (const candidate of ["bin/cli.js", "dist/cli.js", "dist/index.js"]) {
+    const entry = path.join(coreDir, candidate);
+    if (fs.existsSync(entry)) return entry;
+  }
+  return null;
+}
+
+function openBrowser(url) {
+  const { exec } = require("child_process");
+  if (process.platform === "win32") exec(`start ${url}`);
+  else if (process.platform === "darwin") exec(`open ${url}`);
+}
+
+if (process.argv.includes("--supervisor")) {
+  const { spawn } = require("child_process");
+  const log = (msg) => console.log(`  ${msg}`);
+
+  // 1. Config sync
+  const configPath = path.join(DATA_DIR, ".openclaw", "openclaw.json");
+  let config = {};
+  try {
+    config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+  } catch { /* first run, no config yet */ }
+
+  process.env.OPENCLAW_HOME = path.join(DATA_DIR, ".openclaw");
+  process.env.PATH = path.join(BASE_DIR, "app", "runtime", "node-win-x64") +
+    path.delimiter + process.env.PATH;
+
+  if (config && Object.keys(config).length > 0) {
+    syncAuthProfiles(config);
+    syncInternalConfig(config);
+    setProviderEnvVars(config);
+    log("配置同步完成");
+  }
+
+  // 2. Find OpenClaw
+  const openclawEntry = findOpenClawEntry();
+  if (!openclawEntry) {
+    log("[错误] AI 引擎未找到，请确认文件完整。");
+    process.exit(1);
+  }
+
+  // 3. Start gateway
+  log("正在启动 AI 引擎...");
+  const gatewayProcess = spawn(
+    process.execPath,
+    [openclawEntry, "gateway", "--port", String(GATEWAY_PORT), "--allow-unconfigured"],
+    { cwd: BASE_DIR, stdio: ["ignore", "pipe", "pipe"] },
   );
-});
+  gatewayProcess.stdout.on("data", () => {});
+  gatewayProcess.stderr.on("data", () => {});
+
+  // Cleanup on exit
+  const cleanup = () => {
+    if (gatewayProcess && !gatewayProcess.killed) gatewayProcess.kill();
+  };
+  process.on("exit", cleanup);
+  process.on("SIGINT", () => { cleanup(); process.exit(0); });
+  process.on("SIGTERM", () => { cleanup(); process.exit(0); });
+
+  gatewayProcess.on("exit", (code) => {
+    if (code !== null && code !== 0) {
+      log(`[错误] AI 引擎异常退出 (code ${code})`);
+      process.exit(1);
+    }
+  });
+
+  // 4. Wait for gateway health
+  const waitForGateway = () => {
+    let elapsed = 0;
+    const check = () => {
+      const req = http.get(
+        `http://127.0.0.1:${GATEWAY_PORT}/health`,
+        { timeout: 2000 },
+        (res) => {
+          res.resume();
+          if (res.statusCode === 200) {
+            log("AI 引擎已启动");
+            startUI();
+          } else {
+            retry();
+          }
+        },
+      );
+      req.on("error", retry);
+      req.on("timeout", () => { req.destroy(); retry(); });
+    };
+    const retry = () => {
+      elapsed++;
+      if (elapsed > 60) {
+        log("[错误] AI 引擎启动超时");
+        cleanup();
+        process.exit(1);
+      }
+      if (elapsed % 5 === 0) log(`仍在加载中...（已等待 ${elapsed} 秒）`);
+      setTimeout(check, 1000);
+    };
+    check();
+  };
+
+  // 5. Start UI server + open browser
+  const startUI = () => {
+    log("正在启动界面...");
+    server.listen(UI_PORT, "127.0.0.1", () => {
+      log("PocketClaw 已启动！");
+      log(`浏览器地址: http://localhost:${UI_PORT}`);
+      log("");
+      log("关闭此窗口即可退出 PocketClaw");
+      openBrowser(`http://localhost:${UI_PORT}`);
+    });
+  };
+
+  waitForGateway();
+} else {
+  // Normal mode: just start the UI server (gateway managed by Go launcher)
+  server.listen(UI_PORT, "127.0.0.1", () => {
+    console.log(`[PocketClaw UI] Server running at http://localhost:${UI_PORT}`);
+    console.log(
+      `[PocketClaw UI] Gateway proxy: ws://localhost:${UI_PORT}/ws -> ws://${GATEWAY_HOST}:${GATEWAY_PORT}`,
+    );
+  });
+}

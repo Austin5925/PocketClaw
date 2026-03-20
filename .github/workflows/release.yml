@@ -78,35 +78,52 @@ jobs:
           npm init -y
           npm install openclaw
 
+      - name: Pre-install ClawHub skills
+        run: |
+          export OPENCLAW_HOME="portable/data/.openclaw"
+          mkdir -p "$OPENCLAW_HOME/workspace/skills"
+          while IFS= read -r slug; do
+            [ -z "$slug" ] && continue
+            npx clawhub@latest install "$slug" || echo "WARN: Failed to install $slug"
+          done < portable/system/bundled-skills.txt
+          echo "Installed $(ls "$OPENCLAW_HOME/workspace/skills" | wc -l | tr -d ' ') skills"
+
       - name: Build Mac launchers
         working-directory: launcher
         run: |
           GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" \
-            -o "../portable/启动PocketClaw.app/Contents/MacOS/PocketClaw-arm64" .
+            -o "../portable/system/启动PocketClaw.app/Contents/MacOS/PocketClaw-arm64" .
           GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" \
-            -o "../portable/启动PocketClaw.app/Contents/MacOS/PocketClaw-x64" .
+            -o "../portable/system/启动PocketClaw.app/Contents/MacOS/PocketClaw-x64" .
 
-          chmod +x "../portable/启动PocketClaw.app/Contents/MacOS/launcher"
-          chmod +x "../portable/启动PocketClaw.app/Contents/MacOS/PocketClaw-arm64"
-          chmod +x "../portable/启动PocketClaw.app/Contents/MacOS/PocketClaw-x64"
+          chmod +x "../portable/system/启动PocketClaw.app/Contents/MacOS/launcher"
+          chmod +x "../portable/system/启动PocketClaw.app/Contents/MacOS/PocketClaw-arm64"
+          chmod +x "../portable/system/启动PocketClaw.app/Contents/MacOS/PocketClaw-x64"
 
       - name: Sign Mac app (ad-hoc)
         run: |
-          codesign --force --deep --sign - "portable/启动PocketClaw.app"
+          codesign --force --deep --sign - "portable/system/启动PocketClaw.app"
 
       - name: Create Mac package
         run: |
           VERSION="${{ needs.check-version.outputs.version }}"
+          # Remove Windows-only files
           rm -f "portable/启动PocketClaw.exe" 2>/dev/null || true
+          rm -f "portable/启动PocketClaw.bat" 2>/dev/null || true
+          rm -f portable/查看日志.bat 2>/dev/null || true
+          # Remove legacy launchers
           rm -f portable/Windows-Start.bat portable/Windows-Menu.bat 2>/dev/null || true
-          rm -f portable/Mac-Menu.command 2>/dev/null || true
-          chmod +x portable/Mac-Start.command
+          rm -f portable/Mac-Start.command portable/Mac-Menu.command 2>/dev/null || true
+
+          chmod +x portable/启动PocketClaw.command
 
           cd portable
           zip -r "../PocketClaw-v${VERSION}-mac.zip" . \
             -x "data/.openclaw/credentials/*" \
             -x "data/memory/*.md" \
-            -x "data/backups/*"
+            -x "data/backups/*" \
+            -x "system/setup.bat" \
+            -x "system/update.bat"
 
       - name: Create update package
         run: |
@@ -168,25 +185,42 @@ jobs:
           npm init -y
           npm install openclaw
 
+      - name: Pre-install ClawHub skills
+        shell: bash
+        run: |
+          export OPENCLAW_HOME="portable/data/.openclaw"
+          mkdir -p "$OPENCLAW_HOME/workspace/skills"
+          while IFS= read -r slug; do
+            [ -z "$slug" ] && continue
+            npx clawhub@latest install "$slug" || echo "WARN: Failed to install $slug"
+          done < portable/system/bundled-skills.txt
+          echo "Installed $(ls "$OPENCLAW_HOME/workspace/skills" | wc -l | tr -d ' ') skills"
+
       - name: Build Windows launcher
         shell: bash
         working-directory: launcher
         run: |
           GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" \
-            -o "../portable/启动PocketClaw.exe" .
+            -o "../portable/system/启动PocketClaw.exe" .
 
       - name: Create Windows package
         shell: bash
         run: |
           VERSION="${{ needs.check-version.outputs.version }}"
-          rm -rf "portable/启动PocketClaw.app" 2>/dev/null || true
+          # Remove Mac-only files
+          rm -rf "portable/system/启动PocketClaw.app" 2>/dev/null || true
+          rm -f portable/启动PocketClaw.command 2>/dev/null || true
+          # Remove legacy launchers
           rm -f portable/Mac-Start.command portable/Mac-Menu.command 2>/dev/null || true
           rm -f portable/Windows-Start.bat portable/Windows-Menu.bat 2>/dev/null || true
+
           cd portable
           7z a -r "../PocketClaw-v${VERSION}-windows.zip" . \
             -x!data/.openclaw/credentials \
             -x!data/memory/*.md \
-            -x!data/backups/*
+            -x!data/backups/* \
+            -x!system/setup.sh \
+            -x!system/update.sh
 
       - uses: actions/upload-artifact@v4
         with:

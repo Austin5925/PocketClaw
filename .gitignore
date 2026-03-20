@@ -17,8 +17,8 @@ portable/app/core/
 portable/app/runtime/
 portable/app/ui/dist/
 *.exe
-portable/启动PocketClaw.app/Contents/MacOS/PocketClaw-arm64
-portable/启动PocketClaw.app/Contents/MacOS/PocketClaw-x64
+portable/system/启动PocketClaw.app/Contents/MacOS/PocketClaw-arm64
+portable/system/启动PocketClaw.app/Contents/MacOS/PocketClaw-x64
 
 # === 环境与配置 ===
 .env

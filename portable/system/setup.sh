@@ -7,7 +7,9 @@ RUNTIME_DIR="$BASE_DIR/app/runtime"
 CORE_DIR="$BASE_DIR/app/core"
 
 NODE_VERSION="22.22.1"
-NODE_BASE_URL="https://nodejs.org/dist/v${NODE_VERSION}"
+# Chinese mirror (faster in mainland China), fall back to official
+NODE_MIRROR_URL="https://npmmirror.com/mirrors/node/v${NODE_VERSION}"
+NODE_OFFICIAL_URL="https://nodejs.org/dist/v${NODE_VERSION}"
 
 log() { echo "[PocketClaw Setup] $*"; }
 error() { echo "[ERROR] $*" >&2; exit 1; }
@@ -25,20 +27,27 @@ download_node() {
     fi
 
     local filename="node-v${NODE_VERSION}-${platform}-${arch}.${ext}"
-    local url="${NODE_BASE_URL}/${filename}"
+    local mirror_url="${NODE_MIRROR_URL}/${filename}"
+    local official_url="${NODE_OFFICIAL_URL}/${filename}"
 
     log "Downloading $filename ..."
     mkdir -p "$target_dir"
 
+    # Download to /tmp, then move — works on both macOS BSD tar and GNU tar
     if [ "$ext" = "tar.gz" ]; then
-        curl -fSL "$url" | tar xz -C "$RUNTIME_DIR" --strip-components=1 \
-            --transform "s|^[^/]*|$dirname|" 2>/dev/null || \
-        curl -fSL "$url" | tar xz -C "/tmp" && \
-            mv "/tmp/node-v${NODE_VERSION}-${platform}-${arch}"/* "$target_dir/" && \
-            rm -rf "/tmp/node-v${NODE_VERSION}-${platform}-${arch}"
+        local tmpdir="/tmp/pocketclaw-node-$$"
+        mkdir -p "$tmpdir"
+        # Try Chinese mirror first, fall back to official
+        if ! curl -fSL --connect-timeout 10 "$mirror_url" | tar xz -C "$tmpdir" 2>/dev/null; then
+            curl -fSL "$official_url" | tar xz -C "$tmpdir"
+        fi
+        mv "$tmpdir/node-v${NODE_VERSION}-${platform}-${arch}"/* "$target_dir/"
+        rm -rf "$tmpdir"
     elif [ "$ext" = "zip" ]; then
         local tmpzip="/tmp/${filename}"
-        curl -fSL "$url" -o "$tmpzip"
+        if ! curl -fSL --connect-timeout 10 "$mirror_url" -o "$tmpzip" 2>/dev/null; then
+            curl -fSL "$official_url" -o "$tmpzip"
+        fi
         unzip -qo "$tmpzip" -d "/tmp"
         mv "/tmp/node-v${NODE_VERSION}-${platform}-${arch}"/* "$target_dir/"
         rm -f "$tmpzip"
@@ -100,22 +109,42 @@ main() {
     log "Base directory: $BASE_DIR"
 
     local mode="${1:-all}"
+    local os_type="$(uname -s)"
+    local arch_type="$(uname -m)"
 
     case "$mode" in
         node)
             log "Downloading Node.js runtimes..."
-            download_node "darwin" "arm64" "tar.gz"
-            download_node "darwin" "x64" "tar.gz"
-            download_node "win" "x64" "zip"
+            if [ "$os_type" = "Darwin" ]; then
+                # Mac: only download current architecture
+                if [ "$arch_type" = "arm64" ]; then
+                    download_node "darwin" "arm64" "tar.gz"
+                else
+                    download_node "darwin" "x64" "tar.gz"
+                fi
+            else
+                # CI / Linux: download all platforms
+                download_node "darwin" "arm64" "tar.gz"
+                download_node "darwin" "x64" "tar.gz"
+                download_node "win" "x64" "zip"
+            fi
             ;;
         openclaw)
             install_openclaw
             ;;
         all)
             log "Downloading Node.js runtimes..."
-            download_node "darwin" "arm64" "tar.gz"
-            download_node "darwin" "x64" "tar.gz"
-            download_node "win" "x64" "zip"
+            if [ "$os_type" = "Darwin" ]; then
+                if [ "$arch_type" = "arm64" ]; then
+                    download_node "darwin" "arm64" "tar.gz"
+                else
+                    download_node "darwin" "x64" "tar.gz"
+                fi
+            else
+                download_node "darwin" "arm64" "tar.gz"
+                download_node "darwin" "x64" "tar.gz"
+                download_node "win" "x64" "zip"
+            fi
             install_openclaw
             setup_data
             ;;

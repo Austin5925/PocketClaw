@@ -14,10 +14,10 @@
 
 将 U 盘插入电脑，打开 U 盘，找到启动文件并双击：
 
-- **Windows 用户** → 双击 `启动PocketClaw.exe`
-- **Mac 用户** → 双击 `启动PocketClaw.app`
+- **Windows 用户** → 双击 `启动PocketClaw.bat`
+- **Mac 用户** → 双击 `启动PocketClaw.command`
 
-> **Mac 用户注意**：如果提示"无法打开"，请右键点击文件，选择"打开"，然后在弹窗中再点一次"打开"。这是 macOS 的安全提示，只需操作一次。
+> 首次打开时系统可能会弹出安全提示，请点击"打开"或"允许"即可。
 
 ### 第二步：开始使用
 
@@ -64,7 +64,7 @@
 |---|---|
 | 运行时 | Node.js 22 (便携二进制) |
 | AI 核心 | OpenClaw (MIT) |
-| 启动器 | Go 编译（.exe / .app） |
+| 启动器 | Go + Node.js（.bat / .command） |
 | 简约 UI | React 18 + TypeScript + Tailwind CSS |
 | 构建 | Vite 5 |
 | 通信 | WebSocket (OpenClaw Gateway Protocol v3) |
@@ -82,7 +82,7 @@ cd ui && pnpm build
 cd ui && pnpm lint && pnpm test
 
 # Launcher（Go 交叉编译）
-cd launcher && GOOS=windows GOARCH=amd64 go build -o "../portable/启动PocketClaw.exe" .
+cd launcher && GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o "../portable/system/启动PocketClaw.exe" .
 ```
 
 ## 许可证

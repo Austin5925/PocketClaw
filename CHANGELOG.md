@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.32] - 2026-03-20
+
+### Fixed
+
+- **Mac "Node.js 未找到" 根因修复 (P0)**: 根因是 macOS App Translocation — 用户双击 `.app` 时 macOS 将其复制到临时目录运行，导致 Go 启动器算出的 `baseDir` 指向临时路径，找不到同级的 `app/runtime/`。改用 `.command` 脚本作为唯一入口，通过 `POCKETCLAW_BASE` 环境变量传递真实目录，彻底绕过 Translocation
+- **Windows Smart App Control 拦截 (P0)**: Go 编译的 `.exe` 未签名被 SAC 直接拦截且无法绕过。改用 `启动PocketClaw.bat` 调用 Node.js（有 Node.js Foundation 签名）运行 `server.js --supervisor` 模式，SAC 不再拦截
+- **setup.sh macOS tar 不兼容**: 移除 macOS BSD tar 不支持的 `--transform` 参数，改用 `/tmp` 解压 + `mv` 方式；Mac 上只下载当前 CPU 架构的 Node.js
+
+### Changed
+
+- **Mac 启动方式**: `启动PocketClaw.command` 替代 `.app` 成为唯一入口。`.app` 移入 `system/` 目录，用户目录只保留一个可执行文件
+- **Windows 启动方式**: `启动PocketClaw.bat` 替代 `.exe` 成为主入口（Node.js --supervisor 模式）。`.exe` 移入 `system/` 目录
+- **Node.js 下载源**: 新增 npmmirror.com 中国镜像为首选，nodejs.org 作为 fallback
+- **恢复 Channels/Skills 页面**: 回滚 v1.1.31 的页面移除，为预装 skills 做准备
+
+### Added
+
+- **预装 66 个 ClawHub Skills**: CI 构建时自动安装 66 个精选 skill（中文/翻译/写作/教育/效率/编程/数据/图表/求职/生活/娱乐），开箱可用
+- **server.js --supervisor 模式**: 完整的进程管理器，启动配置同步 + gateway 子进程 + 健康检查 + 浏览器打开 + 干净退出，替代 Windows 上的 Go 启动器
+- **Go 启动器 POCKETCLAW_BASE 支持**: `resolveBaseDir()` 优先读取环境变量，避免 macOS App Translocation 问题
+- **Go 启动器 SIGHUP 信号处理**: Mac Terminal 关闭时 Go 进程能收到信号并干净退出
+
 ## [1.1.31] - 2026-03-20
 
 ### Fixed

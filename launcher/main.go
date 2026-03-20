@@ -151,7 +151,7 @@ func main() {
 	logMsg("如果浏览器没有自动打开，请手动访问: http://localhost:" + uiPort)
 
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
 	select {
 	case <-sigCh:
@@ -169,6 +169,13 @@ func main() {
 }
 
 func resolveBaseDir() {
+	// .command / .bat launcher sets POCKETCLAW_BASE to the real portable directory,
+	// which avoids macOS App Translocation pointing us to a temp path.
+	if envBase := os.Getenv("POCKETCLAW_BASE"); envBase != "" {
+		baseDir = envBase
+		return
+	}
+
 	exe, err := os.Executable()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "无法确定启动器位置")
@@ -197,9 +204,7 @@ func logMsg(msg string) {
 	ts := time.Now().Format("15:04:05")
 	line := fmt.Sprintf("[%s] %s\n", ts, msg)
 	logFile.WriteString(line)
-	if runtime.GOOS == "windows" {
-		fmt.Printf("[PocketClaw] %s\n", msg)
-	}
+	fmt.Printf("  %s\n", msg)
 }
 
 func readVersion() string {
@@ -613,15 +618,9 @@ func openBrowser(url string) {
 
 func showError(msg string) {
 	logMsg("ERROR: " + msg)
-	switch runtime.GOOS {
-	case "darwin":
-		exec.Command("osascript", "-e",
-			fmt.Sprintf(`display dialog "%s" buttons {"确定"} with title "PocketClaw" with icon stop`, msg)).Run()
-	case "windows":
-		fmt.Fprintf(os.Stderr, "\n[PocketClaw ERROR] %s\n", msg)
-		fmt.Println("按 Enter 键退出...")
-		fmt.Scanln()
-	}
+	fmt.Fprintf(os.Stderr, "\n[PocketClaw 错误] %s\n", msg)
+	fmt.Println("\n按 Enter 键退出...")
+	fmt.Scanln()
 }
 
 func showErrorWithLog(msg string) {
@@ -630,29 +629,19 @@ func showErrorWithLog(msg string) {
 	logPath := filepath.Join(baseDir, "data", "pocketclaw.log")
 	logFile.Sync()
 	logData, err := os.ReadFile(logPath)
-	logTail := ""
 	if err == nil {
 		lines := strings.Split(strings.TrimSpace(string(logData)), "\n")
 		start := 0
 		if len(lines) > 30 {
 			start = len(lines) - 30
 		}
-		logTail = strings.Join(lines[start:], "\n")
+		logTail := strings.Join(lines[start:], "\n")
+		fmt.Println("\n--- 日志（用于排查问题）---")
+		fmt.Println(logTail)
+		fmt.Println("--- 日志结束 ---")
+		fmt.Printf("\n完整日志: %s\n", logPath)
 	}
-
-	switch runtime.GOOS {
-	case "darwin":
-		exec.Command("osascript", "-e",
-			fmt.Sprintf(`display dialog "%s" buttons {"确定"} with title "PocketClaw" with icon stop`, msg)).Run()
-	case "windows":
-		fmt.Fprintf(os.Stderr, "\n[PocketClaw ERROR] %s\n", msg)
-		if logTail != "" {
-			fmt.Println("\n--- 日志（用于排查问题）---")
-			fmt.Println(logTail)
-			fmt.Println("--- 日志结束 ---")
-			fmt.Printf("\n完整日志: %s\n", logPath)
-		}
-		fmt.Println("\n按 Enter 键退出...")
-		fmt.Scanln()
-	}
+	fmt.Fprintf(os.Stderr, "\n[PocketClaw 错误] %s\n", msg)
+	fmt.Println("\n按 Enter 键退出...")
+	fmt.Scanln()
 }

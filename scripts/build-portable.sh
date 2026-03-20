@@ -34,18 +34,18 @@ log "Step 4: Building launchers..."
 if command -v go &>/dev/null; then
     cd "$PROJECT_ROOT/launcher"
 
-    GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o "$PORTABLE_DIR/启动PocketClaw.exe" .
+    GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o "$PORTABLE_DIR/system/启动PocketClaw.exe" .
     log "Windows .exe built"
 
-    GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "$PORTABLE_DIR/启动PocketClaw.app/Contents/MacOS/PocketClaw-arm64" .
+    GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "$PORTABLE_DIR/system/启动PocketClaw.app/Contents/MacOS/PocketClaw-arm64" .
     log "Mac ARM64 binary built"
 
-    GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "$PORTABLE_DIR/启动PocketClaw.app/Contents/MacOS/PocketClaw-x64" .
+    GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "$PORTABLE_DIR/system/启动PocketClaw.app/Contents/MacOS/PocketClaw-x64" .
     log "Mac x64 binary built"
 
-    chmod +x "$PORTABLE_DIR/启动PocketClaw.app/Contents/MacOS/launcher"
-    chmod +x "$PORTABLE_DIR/启动PocketClaw.app/Contents/MacOS/PocketClaw-arm64"
-    chmod +x "$PORTABLE_DIR/启动PocketClaw.app/Contents/MacOS/PocketClaw-x64"
+    chmod +x "$PORTABLE_DIR/system/启动PocketClaw.app/Contents/MacOS/launcher"
+    chmod +x "$PORTABLE_DIR/system/启动PocketClaw.app/Contents/MacOS/PocketClaw-arm64"
+    chmod +x "$PORTABLE_DIR/system/启动PocketClaw.app/Contents/MacOS/PocketClaw-x64"
 else
     log "WARNING: Go not found, skipping launcher build"
 fi
