@@ -1,0 +1,9 @@
+{
+  "name": "pocketclaw-system",
+  "version": "1.0.0",
+  "description": "PocketClaw system server scripts",
+  "engines": {
+    "node": ">=22"
+  },
+  "private": true
+}
