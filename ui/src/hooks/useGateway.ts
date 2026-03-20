@@ -100,17 +100,21 @@ export function useGateway(): UseGatewayReturn {
       // - Delta text is CUMULATIVE (each event has the full text so far)
       // - We track by runId so we handle events from both simple and advanced mode
       if (data.type === "event" && data.event === "chat") {
-        const p = data.payload as Record<string, unknown> | undefined;
-        if (!p) return;
+        // OpenClaw sends chat event fields at the TOP LEVEL (verified from src/gateway/server-chat.ts).
+        // Fall back to data.payload for forward-compat in case format ever changes.
+        const p = (data.payload as Record<string, unknown> | undefined) ?? {};
+        const state = (p.state ?? data.state) as string | undefined;
+        const msg = (p.message ?? data.message) as Record<string, unknown> | undefined;
+        const runId = (p.runId ?? data.runId) as string | undefined;
+        const errorMessage = (p.errorMessage ?? data.errorMessage) as string | undefined;
 
-        const state = p.state as string | undefined;
-        const msg = p.message as Record<string, unknown> | undefined;
-        const runId = p.runId as string | undefined;
+        if (!state) return;
 
         if (state === "error" || state === "aborted") {
           if (runId && runIdToMsgId.current.has(runId)) {
+            // Known run — update existing assistant bubble to show error
             const msgId = runIdToMsgId.current.get(runId)!;
-            const errorText = (p.errorMessage as string) ?? "请求失败";
+            const errorText = errorMessage ?? "请求失败";
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === msgId ? { ...m, content: errorText, pending: false, role: "system" } : m,
@@ -118,6 +122,22 @@ export function useGateway(): UseGatewayReturn {
             );
             runIdToMsgId.current.delete(runId);
             if (runIdToMsgId.current.size === 0) setPending(false);
+          } else if (sendTimeoutRef.current !== null) {
+            // Error arrived before first delta (unknown runId) — show as system message
+            clearTimeout(sendTimeoutRef.current);
+            sendTimeoutRef.current = null;
+            const errorText = errorMessage ?? "请求失败";
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: makeId(),
+                role: "system",
+                content: errorText,
+                timestamp: Date.now(),
+                pending: false,
+              },
+            ]);
+            setPending(false);
           }
           return;
         }
@@ -155,22 +175,54 @@ export function useGateway(): UseGatewayReturn {
         }
 
         if (state === "final") {
-          if (!runId || !runIdToMsgId.current.has(runId)) return;
-          const msgId = runIdToMsgId.current.get(runId)!;
-          const text = msg ? extractText(msg) : "";
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === msgId ? { ...m, ...(text ? { content: text } : {}), pending: false } : m,
-            ),
-          );
-          runIdToMsgId.current.delete(runId);
-          if (runIdToMsgId.current.size === 0) setPending(false);
-          // Refresh session list so sidebar shows updated lastMessagePreview + updatedAt
-          sendRpcRef.current("sessions.list", {
-            limit: 20,
-            includeDerivedTitles: true,
-            includeLastMessage: true,
-          });
+          if (runId && runIdToMsgId.current.has(runId)) {
+            // Normal: delta(s) arrived before final — update existing bubble
+            const msgId = runIdToMsgId.current.get(runId)!;
+            const text = msg ? extractText(msg) : "";
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === msgId ? { ...m, ...(text ? { content: text } : {}), pending: false } : m,
+              ),
+            );
+            runIdToMsgId.current.delete(runId);
+            if (runIdToMsgId.current.size === 0) setPending(false);
+            sendRpcRef.current("sessions.list", {
+              limit: 20,
+              includeDerivedTitles: true,
+              includeLastMessage: true,
+            });
+          } else if (runId && sendTimeoutRef.current !== null) {
+            // Final arrived before any delta (throttled deltas, silent reply, or no-agent path).
+            // The final event contains the full message text — use it directly.
+            clearTimeout(sendTimeoutRef.current);
+            sendTimeoutRef.current = null;
+            const text = msg ? extractText(msg) : "";
+            if (text) {
+              const newId = makeId();
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: newId,
+                  role: "assistant",
+                  content: text,
+                  timestamp: Date.now(),
+                  pending: false,
+                },
+              ]);
+            } else {
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: makeId(),
+                  role: "system",
+                  content: "AI 未返回内容",
+                  timestamp: Date.now(),
+                  pending: false,
+                },
+              ]);
+            }
+            setPending(false);
+          }
           return;
         }
 
@@ -228,7 +280,9 @@ export function useGateway(): UseGatewayReturn {
 
       // ── RPC errors ───────────────────────────────────────────────────────────
       if (data.type === "res" && !(data as Record<string, unknown>).ok) {
-        if (runIdToMsgId.current.size > 0) {
+        // Show error if a send is in flight (timeout running) OR if we have active runs
+        const sendInFlight = sendTimeoutRef.current !== null;
+        if (sendInFlight || runIdToMsgId.current.size > 0) {
           const errPayload = (data as Record<string, unknown>).error as
             | Record<string, unknown>
             | undefined;
@@ -236,15 +290,33 @@ export function useGateway(): UseGatewayReturn {
             (errPayload?.message as string) ??
             ((data.payload as Record<string, unknown> | undefined)?.message as string) ??
             "请求失败";
-          // Mark all pending messages as error (covers concurrent edge cases)
-          runIdToMsgId.current.forEach((msgId) => {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === msgId ? { ...m, content: errMsg, pending: false, role: "system" } : m,
-              ),
-            );
-          });
-          runIdToMsgId.current.clear();
+          if (sendTimeoutRef.current) {
+            clearTimeout(sendTimeoutRef.current);
+            sendTimeoutRef.current = null;
+          }
+          if (runIdToMsgId.current.size > 0) {
+            // Mark all pending bubbles as error
+            runIdToMsgId.current.forEach((msgId) => {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === msgId ? { ...m, content: errMsg, pending: false, role: "system" } : m,
+                ),
+              );
+            });
+            runIdToMsgId.current.clear();
+          } else {
+            // chat.send itself failed before any delta — add system error message
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: makeId(),
+                role: "system",
+                content: errMsg,
+                timestamp: Date.now(),
+                pending: false,
+              },
+            ]);
+          }
           setPending(false);
         }
       }

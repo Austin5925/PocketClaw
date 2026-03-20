@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.26] - 2026-03-20
+
+### Fixed
+
+- **Chat silent failure (3 bugs)**: Verified from OpenClaw dist source (`broadcastInternal` at line 21050) that chat events ARE wrapped under `payload` — devdocs `testing-and-sessions.md` had this wrong. Fixed three silent-failure bugs in `useGateway.ts` that were masking the true error:
+  - **Bug A**: `chat.send` RPC `ok=false` silently dropped when no delta received yet — now surfaces immediately
+  - **Bug B**: `state: "error"` chat event silently dropped when runId not in map (error before first delta) — now shown as error bubble
+  - **Bug C**: `state: "final"` silently dropped when runId not in map (throttled deltas or no-agent path) — now creates assistant bubble or shows "AI 未返回内容"
+- All three bugs caused "60s timeout then nothing" — any gateway-side failure is now immediately visible in the UI
+
 ## [1.1.25] - 2026-03-20
 
 ### Fixed
