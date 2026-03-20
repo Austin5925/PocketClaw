@@ -15,9 +15,42 @@
     "api": "anthropic-messages",
     "models": [
       { "id": "MiniMax-M2.7",           "name": "MiniMax M2.7" },
-      { "id": "MiniMax-M2.7-highspeed", "name": "MiniMax M2.7 Highspeed" },
-      { "id": "MiniMax-M2.5",           "name": "MiniMax M2.5" },
-      { "id": "MiniMax-M2.5-highspeed", "name": "MiniMax M2.5 Highspeed" }
+      { "id": "MiniMax-M2.7-highspeed", "name": "MiniMax M2.7 Highspeed" }
+    ]
+  },
+  "deepseek": {
+    "baseUrl": "https://api.deepseek.com",
+    "api": "openai-completions",
+    "models": [
+      { "id": "deepseek-chat",     "name": "DeepSeek Chat (V3.2)" },
+      { "id": "deepseek-reasoner", "name": "DeepSeek Reasoner" }
+    ]
+  },
+  "moonshot": {
+    "baseUrl": "https://api.moonshot.cn/v1",
+    "api": "openai-completions",
+    "models": [
+      { "id": "kimi-k2.5",        "name": "Kimi K2.5" },
+      { "id": "kimi-k2-thinking", "name": "Kimi K2 Thinking" },
+      { "id": "moonshot-v1-128k", "name": "Moonshot V1 128K" }
+    ]
+  },
+  "qwen": {
+    "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "api": "openai-completions",
+    "models": [
+      { "id": "qwen3.5-plus", "name": "Qwen 3.5 Plus" },
+      { "id": "qwen3-max",    "name": "Qwen 3 Max" },
+      { "id": "qwen-plus",    "name": "Qwen Plus" }
+    ]
+  },
+  "zhipu": {
+    "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
+    "api": "openai-completions",
+    "models": [
+      { "id": "glm-5",         "name": "GLM 5" },
+      { "id": "glm-4.7",       "name": "GLM 4.7" },
+      { "id": "glm-4.7-flash", "name": "GLM 4.7 Flash" }
     ]
   }
 }

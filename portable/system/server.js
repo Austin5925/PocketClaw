@@ -52,6 +52,11 @@ function serveStatic(res, filePath) {
   return true;
 }
 
+// Map our UI provider IDs to OpenClaw provider names.
+// OpenClaw resolves auth by matching the provider field in auth-profiles
+// against the model string prefix (e.g. "moonshot/kimi-k2.5" → provider "moonshot").
+const OPENCLAW_PROVIDER = { kimi: "moonshot", glm: "zhipu" };
+
 /**
  * Write auth-profiles.json for the agent auth store.
  * Format verified from OpenClaw source: src/agents/auth-profiles/types.ts
@@ -60,13 +65,16 @@ function syncAuthProfiles(config) {
   const profiles = {};
   for (const provider of KNOWN_PROVIDERS) {
     const apiKey = config[provider]?.apiKey;
-    if (apiKey) {
-      profiles[`${provider}:default`] = {
-        type: "api_key",
-        provider,
-        key: apiKey,
-      };
-    }
+    if (!apiKey) continue;
+    const openclawProvider = OPENCLAW_PROVIDER[provider] || provider;
+    const profileKey = `${openclawProvider}:default`;
+    // Don't overwrite if already set by a higher-priority alias
+    if (profiles[profileKey]) continue;
+    profiles[profileKey] = {
+      type: "api_key",
+      provider: openclawProvider,
+      key: apiKey,
+    };
   }
 
   if (Object.keys(profiles).length === 0) return;
@@ -88,10 +96,15 @@ function syncAuthProfiles(config) {
   );
 }
 
+// Map our UI provider IDs to the config key in the user's config object.
+// e.g. OpenClaw provider "moonshot" → user config key "kimi"
+const CONFIG_KEY_FOR_PROVIDER = { moonshot: "kimi", zhipu: "glm" };
+
 /**
- * Sync model + MiniMax CN base URL to OpenClaw's internal config.
- * API keys go through auth-profiles.json only.
- * MiniMax provider needs COMPLETE entry (baseUrl, api, models) to pass Zod strict.
+ * Sync model + all provider configs to OpenClaw's internal config.
+ * API keys go through auth-profiles.json primarily, but also written here
+ * as belt-and-suspenders. Provider entries must be COMPLETE (baseUrl, api, models)
+ * to pass Zod strict validation.
  */
 function syncInternalConfig(config) {
   const internalDir = path.join(DATA_DIR, ".openclaw", ".openclaw");
@@ -111,19 +124,26 @@ function syncInternalConfig(config) {
     internal.agents.defaults.model = model;
   }
 
-  // Override MiniMax to China endpoint (api.minimaxi.com) with API key.
-  // Default is api.minimax.io (international) — CN API keys get 401 there.
-  // API key is included here as belt-and-suspenders alongside auth-profiles.json.
+  // Write provider configs for all providers that have entries in shared-config.json.
+  // This ensures OpenClaw knows the baseUrl/api/models for each provider.
   if (!internal.models) internal.models = {};
   if (!internal.models.providers) internal.models.providers = {};
-  const minimaxApiKey = config.minimax?.apiKey;
-  const minimaxCfg = SHARED_CONFIG.minimax;
-  internal.models.providers.minimax = {
-    baseUrl: minimaxCfg.baseUrl,
-    apiKey: minimaxApiKey ?? undefined,
-    api: minimaxCfg.api,
-    models: minimaxCfg.models,
-  };
+
+  for (const [providerKey, providerCfg] of Object.entries(SHARED_CONFIG)) {
+    if (providerKey === "providers") continue;
+    if (!providerCfg.baseUrl) continue;
+
+    // Resolve API key: check config under the UI provider ID
+    const configKey = CONFIG_KEY_FOR_PROVIDER[providerKey] || providerKey;
+    const apiKey = config[configKey]?.apiKey || config[providerKey]?.apiKey;
+
+    internal.models.providers[providerKey] = {
+      baseUrl: providerCfg.baseUrl,
+      apiKey: apiKey ?? undefined,
+      api: providerCfg.api,
+      models: providerCfg.models,
+    };
+  }
 
   fs.mkdirSync(internalDir, { recursive: true });
   fs.writeFileSync(

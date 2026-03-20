@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.28] - 2026-03-20
+
+### Changed
+
+- **All provider models updated to SOTA**: Each provider now offers 2-3 latest models verified from OpenClaw source and official APIs:
+  - MiniMax: M2.7 + M2.7-highspeed
+  - DeepSeek: deepseek-chat (V3.2) + deepseek-reasoner (replaces deprecated deepseek-coder)
+  - Kimi: kimi-k2.5 (256K) + kimi-k2-thinking (replaces moonshot-v1-128k)
+  - Qwen: qwen3.5-plus + qwen3-max + qwen-plus (replaces qwen-max)
+  - GLM: glm-5 + glm-4.7 + glm-4.7-flash (replaces glm-4-plus/glm-4)
+  - Anthropic: claude-sonnet-4-6 + claude-opus-4-6 + claude-haiku-4-5 (updated to 4.6 family)
+  - OpenAI: gpt-5.4 + gpt-5.4-mini + o4-mini (replaces gpt-4o)
+- **All provider API chains now work end-to-end**: DeepSeek, Moonshot, Qwen, Zhipu all have full provider configs (baseUrl, api, models) in shared-config.json + synced to OpenClaw internal config — previously only MiniMax was configured
+
+### Fixed
+
+- **Auth-profiles provider mismatch**: Kimi API keys were stored under provider "kimi" but OpenClaw looks for "moonshot" (model prefix); same for GLM→zhipu. Added provider name mapping so auth-profiles match OpenClaw's expected provider names
+
 ## [1.1.27] - 2026-03-20
 
 ### Fixed
