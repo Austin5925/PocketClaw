@@ -323,7 +323,7 @@ func syncConfigToOpenClaw() {
 		controlUi = make(map[string]interface{})
 	}
 	controlUi["allowInsecureAuth"] = true
-	controlUi["dangerouslyDisableDeviceAuth"] = true
+	// dangerouslyDisableDeviceAuth removed: real Ed25519 device identity is used
 	gw["controlUi"] = controlUi
 
 	internalConfig["gateway"] = gw

@@ -78,7 +78,11 @@ async function loadOrCreateIdentity(): Promise<{
   };
 }
 
-/** Sign an OpenClaw gateway challenge nonce with Ed25519 device identity. */
+/**
+ * Sign an OpenClaw gateway challenge nonce with Ed25519 device identity.
+ * Payload fields must exactly match the connect frame sent by websocket.ts.
+ * Verified from gateway-cli source: buildDeviceAuthPayloadV3 in OpenClaw dist.
+ */
 export async function signChallenge(nonce: string): Promise<{
   deviceId: string;
   publicKey: string;
@@ -88,21 +92,22 @@ export async function signChallenge(nonce: string): Promise<{
   const { privateKey, deviceId, publicKeyBase64url } = await loadOrCreateIdentity();
 
   const signedAt = Date.now();
-  const platform = navigator.platform.toLowerCase();
+  // normalizeDeviceMetadataForAuth: trim + toLowerAscii
+  const platform = (navigator.platform ?? "").trim().toLowerCase();
 
-  // v3 signing payload (pipe-delimited)
+  // v3 pipe-delimited payload — fields must match connect frame exactly
   const payload = [
     "v3",
     deviceId,
-    "gateway-client", // clientId
-    "backend", // clientMode
+    "openclaw-control-ui", // client.id in connect frame
+    "webchat", // client.mode in connect frame
     "operator", // role
-    "operator.read,operator.write", // scopes
+    "operator.read,operator.write,operator.admin", // scopes (comma-joined)
     String(signedAt),
-    "", // token (empty for auth mode none)
+    "", // token (empty — auth.mode is "none")
     nonce,
-    platform,
-    "desktop", // deviceFamily
+    platform, // client.platform (normalized)
+    "desktop", // client.deviceFamily (normalized)
   ].join("|");
 
   const sigBytes = new Uint8Array(

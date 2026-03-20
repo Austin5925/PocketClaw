@@ -68,10 +68,29 @@ afterAll(() => {
   vi.useRealTimers();
 });
 
+// Minimal crypto.subtle mock for Ed25519 device identity in test environment
+const mockCryptoSubtle = {
+  generateKey: vi.fn().mockResolvedValue({
+    privateKey: { type: "private" },
+    publicKey: { type: "public" },
+  }),
+  exportKey: vi.fn().mockImplementation((format: string) => {
+    if (format === "raw") return Promise.resolve(new Uint8Array(32));
+    return Promise.resolve({ crv: "Ed25519", x: "test-pub-key" });
+  }),
+  importKey: vi.fn().mockResolvedValue({ type: "key" }),
+  sign: vi.fn().mockResolvedValue(new Uint8Array(64)),
+  digest: vi.fn().mockResolvedValue(new Uint8Array(32)),
+};
+
 beforeEach(() => {
   wsInstances = [];
+  localStorage.clear();
   vi.stubGlobal("WebSocket", MockWebSocket);
-  vi.stubGlobal("crypto", { randomUUID: () => "test-uuid" });
+  vi.stubGlobal("crypto", {
+    randomUUID: () => "test-uuid",
+    subtle: mockCryptoSubtle,
+  });
 });
 
 afterEach(() => {

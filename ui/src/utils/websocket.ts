@@ -10,6 +10,8 @@ export interface WebSocketMessage {
   [key: string]: unknown;
 }
 
+import { signChallenge } from "./deviceIdentity";
+
 const GATEWAY_WS_URL = "ws://localhost:18789/";
 
 export class GatewayWebSocket {
@@ -42,10 +44,10 @@ export class GatewayWebSocket {
           return;
         }
 
-        // Step 1: Receive challenge, send connect frame
+        // Step 1: Receive challenge, send connect frame (async — real Ed25519 signature)
         if (data.type === "event" && data.event === "connect.challenge") {
           const nonce = (data.payload as Record<string, unknown>)?.nonce as string;
-          this.sendConnectFrame(nonce);
+          void this.sendConnectFrame(nonce);
           return;
         }
 
@@ -100,12 +102,11 @@ export class GatewayWebSocket {
     }
   }
 
-  private sendConnectFrame(nonce: string): void {
+  private async sendConnectFrame(nonce: string): Promise<void> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
-    // Use openclaw-control-ui client ID so dangerouslyDisableDeviceAuth
-    // applies (that flag is scoped to controlUi clients only).
-    // Dummy device fields pass schema validation; signature check is skipped.
+    const { deviceId, publicKey, signature, signedAt } = await signChallenge(nonce);
+
     const frame = {
       type: "req",
       id: crypto.randomUUID(),
@@ -118,22 +119,24 @@ export class GatewayWebSocket {
           version: "1.0",
           mode: "webchat",
           platform: navigator.platform,
+          deviceFamily: "desktop",
         },
         role: "operator",
         scopes: ["operator.read", "operator.write", "operator.admin"],
         device: {
-          id: "pocketclaw",
-          publicKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-          signature:
-            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-          signedAt: Date.now(),
+          id: deviceId,
+          publicKey,
+          signature,
+          signedAt,
           nonce,
         },
         locale: "zh-CN",
       },
     };
 
-    this.ws.send(JSON.stringify(frame));
+    if (this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(frame));
+    }
   }
 
   disconnect(): void {
