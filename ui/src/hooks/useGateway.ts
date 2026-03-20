@@ -165,6 +165,12 @@ export function useGateway(): UseGatewayReturn {
           );
           runIdToMsgId.current.delete(runId);
           if (runIdToMsgId.current.size === 0) setPending(false);
+          // Refresh session list so sidebar shows updated lastMessagePreview + updatedAt
+          sendRpcRef.current("sessions.list", {
+            limit: 20,
+            includeDerivedTitles: true,
+            includeLastMessage: true,
+          });
           return;
         }
 
