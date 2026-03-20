@@ -304,6 +304,23 @@ export function useGateway(): UseGatewayReturn {
       return prev;
     });
     setPending(true);
+    if (sendTimeoutRef.current) clearTimeout(sendTimeoutRef.current);
+    sendTimeoutRef.current = setTimeout(() => {
+      sendTimeoutRef.current = null;
+      if (runIdToMsgId.current.size === 0) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: makeId(),
+            role: "system",
+            content: "请求超时，请重试",
+            timestamp: Date.now(),
+            pending: false,
+          },
+        ]);
+        setPending(false);
+      }
+    }, 60000);
     sendRpcRef.current("chat.send", {
       sessionKey: sessionKeyRef.current,
       message: lastUserMsg,
