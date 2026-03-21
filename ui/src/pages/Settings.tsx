@@ -7,6 +7,7 @@ import { useConfig } from "../hooks/useConfig";
 import { useGatewayConnection } from "../hooks/GatewayContext";
 import { useTheme } from "../hooks/useTheme";
 import { showToast } from "../components/Toast";
+import { getProviderConfigKey } from "../utils/config";
 
 export function Settings() {
   const { config, updateConfig, loading } = useConfig();
@@ -18,10 +19,13 @@ export function Settings() {
   useEffect(() => {
     if (config) {
       setModel(config.agent?.model ?? "");
-      const provider = config.agent?.model?.split("/")[0] ?? "";
-      const providerConfig = config[provider];
+      const configKey = getProviderConfigKey(config.agent?.model ?? "");
+      const providerConfig = config[configKey];
       if (providerConfig && typeof providerConfig === "object" && "apiKey" in providerConfig) {
-        setApiKey(String(providerConfig.apiKey));
+        const raw = String(providerConfig.apiKey);
+        setApiKey(raw.startsWith("****") ? "" : raw);
+      } else {
+        setApiKey("");
       }
     }
   }, [config]);
@@ -29,10 +33,10 @@ export function Settings() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const provider = model.split("/")[0] ?? "";
+      const configKey = getProviderConfigKey(model);
       await updateConfig({
         agent: { ...config?.agent, model },
-        [provider]: { apiKey },
+        [configKey]: { apiKey },
       });
       // Refresh gateway auth store (auth-profiles.json is cached in memory)
       sendRpc("secrets.reload", {});

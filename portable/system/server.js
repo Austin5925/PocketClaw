@@ -217,8 +217,26 @@ function handleApiConfig(req, res) {
     readBody(req, res, (body) => {
       try {
         const parsed = JSON.parse(body);
+
+        // Restore real API keys when frontend sends masked values (****xxxx)
+        let existing = {};
+        try { existing = JSON.parse(fs.readFileSync(configPath, "utf-8")); } catch { /* first run */ }
+        for (const key of Object.keys(parsed)) {
+          if (
+            parsed[key] &&
+            typeof parsed[key] === "object" &&
+            typeof parsed[key].apiKey === "string" &&
+            parsed[key].apiKey.startsWith("****")
+          ) {
+            if (existing[key]?.apiKey) {
+              parsed[key].apiKey = existing[key].apiKey;
+            }
+          }
+        }
+
+        const finalBody = JSON.stringify(parsed, null, 2);
         fs.mkdirSync(path.dirname(configPath), { recursive: true, mode: 0o700 });
-        fs.writeFileSync(configPath, body, { encoding: "utf-8", mode: 0o600 });
+        fs.writeFileSync(configPath, finalBody, { encoding: "utf-8", mode: 0o600 });
 
         // Sync to OpenClaw auth store and internal config
         syncAuthProfiles(parsed);
@@ -325,6 +343,7 @@ function validateKeyRequest(validator, apiKey, model, res) {
 
   const apiReq = https.request(options, (apiRes) => {
     apiRes.resume(); // drain body
+    if (res.headersSent) return;
     if (apiRes.statusCode === 401 || apiRes.statusCode === 403) {
       jsonResponse(res, 200, { valid: false, error: "API Key 无效，请检查后重试" });
     } else {
@@ -333,12 +352,12 @@ function validateKeyRequest(validator, apiKey, model, res) {
   });
 
   apiReq.on("error", () => {
-    jsonResponse(res, 200, { valid: true });
+    if (!res.headersSent) jsonResponse(res, 200, { valid: true });
   });
 
   apiReq.on("timeout", () => {
     apiReq.destroy();
-    jsonResponse(res, 200, { valid: true });
+    if (!res.headersSent) jsonResponse(res, 200, { valid: true });
   });
 
   if (postData) apiReq.write(postData);

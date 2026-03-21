@@ -6,7 +6,7 @@ import { useGateway } from "../hooks/useGateway";
 import { Channels } from "./Channels";
 import { Skills } from "./Skills";
 import { History } from "./History";
-import { MODEL_PROVIDERS } from "../utils/config";
+import { MODEL_PROVIDERS, getProviderConfigKey } from "../utils/config";
 import { useConfig } from "../hooks/useConfig";
 import { showToast } from "../components/Toast";
 
@@ -79,24 +79,27 @@ export function Chat() {
     }
   };
 
-  const currentProviderId = currentModel.split("/")[0] ?? "";
-  const currentProviderCfg = currentProviderId
-    ? (config?.[currentProviderId] as Record<string, unknown> | undefined)
+  const currentConfigKey = getProviderConfigKey(currentModel);
+  const currentProviderCfg = currentConfigKey
+    ? (config?.[currentConfigKey] as Record<string, unknown> | undefined)
     : undefined;
-  const hasApiKey = Boolean(currentProviderCfg?.apiKey);
+  const hasApiKey = Boolean(
+    currentProviderCfg?.apiKey &&
+      !String(currentProviderCfg.apiKey).startsWith("****"),
+  );
 
   const handleModelChange = async (model: string) => {
     setShowModelSelect(false);
-    const provider = model.split("/")[0] ?? "";
-    const providerCfg = provider
-      ? (config?.[provider] as Record<string, unknown> | undefined)
+    const configKey = getProviderConfigKey(model);
+    const providerCfg = configKey
+      ? (config?.[configKey] as Record<string, unknown> | undefined)
       : undefined;
-    if (!providerCfg?.apiKey) {
+    if (!providerCfg?.apiKey || String(providerCfg.apiKey).startsWith("****")) {
       showToast("请先在设置中配置该模型的 API Key", "error");
       return;
     }
     try {
-      await updateConfig({ agent: { ...config?.agent, model }, [provider]: config?.[provider] });
+      await updateConfig({ agent: { ...config?.agent, model }, [configKey]: config?.[configKey] });
       showToast(`已切换到 ${model.split("/").pop()}`, "success");
     } catch {
       showToast("切换模型失败", "error");

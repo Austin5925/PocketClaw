@@ -29,6 +29,22 @@ export async function getVersion(): Promise<{ version: string }> {
   return res.json() as Promise<{ version: string }>;
 }
 
+/**
+ * Map model prefix (from model string like "moonshot/kimi-k2.5") to the config
+ * key where the API key is stored.  Most providers use the same prefix, but
+ * Kimi stores its key under "kimi" while models start with "moonshot/", and
+ * GLM stores under "glm" while models start with "zhipu/".
+ */
+const MODEL_PREFIX_TO_CONFIG_KEY: Record<string, string> = {
+  moonshot: "kimi",
+  zhipu: "glm",
+};
+
+export function getProviderConfigKey(model: string): string {
+  const prefix = model.split("/")[0] ?? "";
+  return MODEL_PREFIX_TO_CONFIG_KEY[prefix] ?? prefix;
+}
+
 export const MODEL_PROVIDERS: ModelProvider[] = [
   {
     id: "minimax",
@@ -81,7 +97,7 @@ export const MODEL_PROVIDERS: ModelProvider[] = [
     id: "openai",
     name: "GPT (OpenAI)",
     description: "通用能力强，需海外 API",
-    models: ["openai/gpt-5.4", "openai/gpt-5.4-mini", "openai/o4-mini"],
+    models: ["openai/gpt-5.4", "openai/gpt-5.4-mini", "openai/gpt-4o-mini"],
     apiKeyUrl: "https://platform.openai.com/api-keys",
   },
 ];

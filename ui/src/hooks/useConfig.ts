@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { OpenClawConfig } from "../types";
-import { loadConfig, saveConfig } from "../utils/config";
+import { loadConfig, saveConfig, getProviderConfigKey } from "../utils/config";
 
 function deepMerge(
   base: Record<string, unknown>,
@@ -82,12 +82,18 @@ export function useConfig(): UseConfigReturn {
     [config, updateConfig],
   );
 
-  // Must have both model AND provider API key to be considered configured
-  const providerId = config?.agent?.model?.split("/")[0] ?? "";
-  const providerCfg = providerId
-    ? (config?.[providerId] as Record<string, unknown> | undefined)
+  // Must have both model AND a real (non-masked) provider API key
+  const configKey = config?.agent?.model
+    ? getProviderConfigKey(config.agent.model)
+    : "";
+  const providerCfg = configKey
+    ? (config?.[configKey] as Record<string, unknown> | undefined)
     : undefined;
-  const isConfigured = Boolean(config?.agent?.model && providerCfg?.apiKey);
+  const isConfigured = Boolean(
+    config?.agent?.model &&
+      providerCfg?.apiKey &&
+      !String(providerCfg.apiKey).startsWith("****"),
+  );
 
   return { config, loading, error, updateConfig, setModel, reload, isConfigured };
 }
