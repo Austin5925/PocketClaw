@@ -68,17 +68,20 @@ jobs:
           # Download SHASUMS for verification
           curl -fsSL "https://nodejs.org/dist/$NODE_VER/SHASUMS256.txt" -o SHASUMS256.txt
 
-          curl -fsSL "https://nodejs.org/dist/$NODE_VER/node-$NODE_VER-darwin-arm64.tar.xz" -o node-arm64.tar.xz
+          # Download with original filenames (shasum -c matches by filename)
+          curl -fsSL "https://nodejs.org/dist/$NODE_VER/node-$NODE_VER-darwin-arm64.tar.xz" \
+            -o "node-$NODE_VER-darwin-arm64.tar.xz"
           grep "node-$NODE_VER-darwin-arm64.tar.xz" SHASUMS256.txt | shasum -a 256 -c -
-          tar -xJf node-arm64.tar.xz
+          tar -xJf "node-$NODE_VER-darwin-arm64.tar.xz"
           mv "node-$NODE_VER-darwin-arm64" portable/app/runtime/node-darwin-arm64
 
-          curl -fsSL "https://nodejs.org/dist/$NODE_VER/node-$NODE_VER-darwin-x64.tar.xz" -o node-x64.tar.xz
+          curl -fsSL "https://nodejs.org/dist/$NODE_VER/node-$NODE_VER-darwin-x64.tar.xz" \
+            -o "node-$NODE_VER-darwin-x64.tar.xz"
           grep "node-$NODE_VER-darwin-x64.tar.xz" SHASUMS256.txt | shasum -a 256 -c -
-          tar -xJf node-x64.tar.xz
+          tar -xJf "node-$NODE_VER-darwin-x64.tar.xz"
           mv "node-$NODE_VER-darwin-x64" portable/app/runtime/node-darwin-x64
 
-          rm -f node-arm64.tar.xz node-x64.tar.xz SHASUMS256.txt
+          rm -f node-$NODE_VER-darwin-*.tar.xz SHASUMS256.txt
 
       - name: Install OpenClaw
         run: |
