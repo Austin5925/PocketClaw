@@ -8,7 +8,9 @@
     { "id": "zhipu",    "envVar": "ZHIPUAI_API_KEY",   "validateUrl": "https://open.bigmodel.cn/api/paas/v4/models",   "validateMethod": "GET",  "validateAuth": "bearer" },
     { "id": "glm",      "openclawId": "zhipu",    "envVar": "ZHIPUAI_API_KEY",   "validateUrl": "https://open.bigmodel.cn/api/paas/v4/models",   "validateMethod": "GET",  "validateAuth": "bearer" },
     { "id": "openai",   "envVar": "OPENAI_API_KEY",    "validateUrl": "https://api.openai.com/v1/models",              "validateMethod": "GET",  "validateAuth": "bearer" },
-    { "id": "anthropic","envVar": "ANTHROPIC_API_KEY", "validateUrl": "https://api.anthropic.com/v1/messages",         "validateMethod": "POST", "validateAuth": "x-api-key" }
+    { "id": "anthropic","envVar": "ANTHROPIC_API_KEY", "validateUrl": "https://api.anthropic.com/v1/messages",         "validateMethod": "POST", "validateAuth": "x-api-key" },
+    { "id": "doubao",   "openclawId": "volcengine", "envVar": "VOLCANO_ENGINE_API_KEY", "validateUrl": "https://ark.cn-beijing.volces.com/api/v3/chat/completions", "validateMethod": "POST", "validateAuth": "bearer" },
+    { "id": "gemini",   "openclawId": "google",     "envVar": "GEMINI_API_KEY",         "validateUrl": "https://generativelanguage.googleapis.com/v1beta/openai/models", "validateMethod": "GET", "validateAuth": "bearer" }
   ],
   "minimax": {
     "baseUrl": "https://api.minimaxi.com/anthropic",
@@ -69,6 +71,24 @@
       { "id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6" },
       { "id": "claude-opus-4-6",   "name": "Claude Opus 4.6" },
       { "id": "claude-haiku-4-5",  "name": "Claude Haiku 4.5" }
+    ]
+  },
+  "volcengine": {
+    "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+    "api": "openai-completions",
+    "models": [
+      { "id": "doubao-seed-2-0-pro-260215",  "name": "豆包 Seed 2.0 Pro" },
+      { "id": "doubao-seed-2-0-lite-260215", "name": "豆包 Seed 2.0 Lite" },
+      { "id": "doubao-seed-2-0-mini-260215", "name": "豆包 Seed 2.0 Mini" }
+    ]
+  },
+  "google": {
+    "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+    "api": "google-generative-ai",
+    "models": [
+      { "id": "gemini-3.1-pro-preview",       "name": "Gemini 3.1 Pro" },
+      { "id": "gemini-3-flash-preview",        "name": "Gemini 3 Flash" },
+      { "id": "gemini-3.1-flash-lite-preview", "name": "Gemini 3.1 Flash Lite" }
     ]
   }
 }

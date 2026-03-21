@@ -38,6 +38,8 @@ export async function getVersion(): Promise<{ version: string }> {
 const MODEL_PREFIX_TO_CONFIG_KEY: Record<string, string> = {
   moonshot: "kimi",
   zhipu: "glm",
+  volcengine: "doubao",
+  google: "gemini",
 };
 
 export function getProviderConfigKey(model: string): string {
@@ -83,6 +85,17 @@ export const MODEL_PROVIDERS: ModelProvider[] = [
     apiKeyUrl: "https://open.bigmodel.cn/usercenter/apikeys",
   },
   {
+    id: "doubao",
+    name: "豆包 (字节跳动)",
+    description: "字节出品，Seed 2.0 旗舰",
+    models: [
+      "volcengine/doubao-seed-2-0-pro-260215",
+      "volcengine/doubao-seed-2-0-lite-260215",
+      "volcengine/doubao-seed-2-0-mini-260215",
+    ],
+    apiKeyUrl: "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey",
+  },
+  {
     id: "anthropic",
     name: "Claude (Anthropic)",
     description: "推理能力强，需海外 API",
@@ -99,5 +112,16 @@ export const MODEL_PROVIDERS: ModelProvider[] = [
     description: "通用能力强，需海外 API",
     models: ["openai/gpt-5.4", "openai/gpt-5.4-mini", "openai/gpt-4o-mini"],
     apiKeyUrl: "https://platform.openai.com/api-keys",
+  },
+  {
+    id: "gemini",
+    name: "Gemini (Google)",
+    description: "超长上下文，需海外网络",
+    models: [
+      "google/gemini-3.1-pro-preview",
+      "google/gemini-3-flash-preview",
+      "google/gemini-3.1-flash-lite-preview",
+    ],
+    apiKeyUrl: "https://aistudio.google.com/app/apikey",
   },
 ];

@@ -332,7 +332,14 @@ function validateKeyRequest(validator, apiKey, model, res) {
   };
 
   if (validator.method === "POST") {
-    const modelId = (model || "").split("/")[1] || (validator.auth === "x-api-key" ? "MiniMax-M2.7" : "claude-3-5-haiku-20241022");
+    let modelId = (model || "").split("/")[1] || "";
+    if (!modelId) {
+      // Fallback model for validation by provider
+      if (urlObj.hostname.includes("minimaxi")) modelId = "MiniMax-M2.7";
+      else if (urlObj.hostname.includes("anthropic")) modelId = "claude-haiku-4-5";
+      else if (urlObj.hostname.includes("volces.com")) modelId = "doubao-seed-2-0-mini-260215";
+      else modelId = "test";
+    }
     postData = JSON.stringify({
       model: modelId,
       max_tokens: 1,
