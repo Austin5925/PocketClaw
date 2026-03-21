@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.34] - 2026-03-21
+
+### Fixed
+
+- **"failed to fetch" 崩溃修复 (P0)**: `validateKeyRequest` 中 timeout + error 事件双重写入 response 导致 Node.js 崩溃（`ERR_HTTP_HEADERS_SENT`）。添加 `res.headersSent` 守卫
+- **API Key 被覆盖修复 (P0)**: GET `/api/config` 返回 masked key `****xxxx` → 前端 deepMerge 保留 → PUT 回写覆盖真实 key → 所有 provider 失效。修复：服务端检测 `****` 前缀时保留文件中的真实 key；前端不加载 masked key 到输入框
+- **OpenAI/Anthropic 配置缺失修复 (P0)**: `shared-config.json` 缺少 openai/anthropic 顶级配置（无 baseUrl/api/models），`syncInternalConfig` 不写入 OpenClaw → 这两个 provider 始终不可用
+- **Provider ID 映射修复 (P1)**: Kimi 模型前缀 `moonshot/` 但 config 在 `kimi` 下，GLM 模型前缀 `zhipu/` 但 config 在 `glm` 下 → API Key 检查失败。添加 `getProviderConfigKey()` 统一映射
+
+### Added
+
+- **豆包 (Doubao) provider**: 字节跳动/火山引擎出品，Seed 2.0 Pro/Lite/Mini 三个模型，中国大陆端点直达
+- **Gemini provider**: Google Gemini 3.1 Pro / 3 Flash / 3.1 Flash Lite，标注需海外网络
+- **端到端 provider 链路测试**: 11 个集成测试覆盖全部 9 个 provider 的完整配置链（PUT → 文件写入 → auth-profiles → models.providers → masked key 保护）
+
+### Changed
+
+- `o4-mini` 模型改为 `gpt-4o-mini`（更经济的测试用模型）
+- Provider 总数从 7 个扩展到 9 个（新增豆包 + Gemini）
+
 ## [1.1.33] - 2026-03-20
 
 ### Security
