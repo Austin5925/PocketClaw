@@ -82,14 +82,13 @@ export function useConfig(): UseConfigReturn {
     [config, updateConfig],
   );
 
-  // Must have both model AND a real (non-masked) provider API key
+  // Must have both model AND a provider API key (masked "****xxxx" counts —
+  // the server holds the real key; GET /api/config always masks for security).
   const configKey = config?.agent?.model ? getProviderConfigKey(config.agent.model) : "";
   const providerCfg = configKey
     ? (config?.[configKey] as Record<string, unknown> | undefined)
     : undefined;
-  const isConfigured = Boolean(
-    config?.agent?.model && providerCfg?.apiKey && !String(providerCfg.apiKey).startsWith("****"),
-  );
+  const isConfigured = Boolean(config?.agent?.model && providerCfg?.apiKey);
 
   return { config, loading, error, updateConfig, setModel, reload, isConfigured };
 }

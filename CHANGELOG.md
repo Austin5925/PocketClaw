@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.35] - 2026-03-21
+
+### Fixed
+
+- **路由守卫阻止进入主界面 (P0)**: `isConfigured` 检查拒绝 masked API key（`****xxxx`），而 `GET /api/config` 始终返回 masked key → 任何页面加载/导航后 `isConfigured = false` → 永远重定向回 onboarding。修复：masked key 表示服务端存有真实 key，视为已配置
+- **Onboarding 存储 config key 不一致 (P0)**: Kimi/GLM/豆包/Gemini 的模型前缀（moonshot/zhipu/volcengine/google）与 config key（kimi/glm/doubao/gemini）不同，Onboarding 用 `model.split("/")[0]` 存储，但 `isConfigured` 用 `getProviderConfigKey()` 查找 → key 找不到。修复：Onboarding 统一使用 `getProviderConfigKey()`
+- **Chat 页面模型切换误判 (P1)**: `hasApiKey` 和 `handleModelChange` 中的 masked key 检查导致已配置的 provider 显示"请先配置 API Key"
+
 ## [1.1.34] - 2026-03-21
 
 ### Fixed

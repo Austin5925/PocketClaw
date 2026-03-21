@@ -4,7 +4,7 @@ import { ModelSelector } from "../components/ModelSelector";
 import { ApiKeyInput } from "../components/ApiKeyInput";
 import { useConfig } from "../hooks/useConfig";
 import { useGatewayConnection } from "../hooks/GatewayContext";
-import { MODEL_PROVIDERS } from "../utils/config";
+import { MODEL_PROVIDERS, getProviderConfigKey } from "../utils/config";
 
 export function Onboarding() {
   const navigate = useNavigate();
@@ -26,13 +26,14 @@ export function Onboarding() {
     setError(null);
 
     try {
-      const providerId = model.split("/")[0] ?? "";
+      const modelPrefix = model.split("/")[0] ?? "";
+      const configKey = getProviderConfigKey(model);
 
       // Validate API Key via server proxy (avoids browser CORS)
       const validateRes = await fetch("/api/validate-key", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: providerId, apiKey: apiKey.trim(), model }),
+        body: JSON.stringify({ provider: modelPrefix, apiKey: apiKey.trim(), model }),
       });
       if (validateRes.ok) {
         const result = (await validateRes.json()) as { valid: boolean; error?: string };
@@ -45,7 +46,7 @@ export function Onboarding() {
 
       await updateConfig({
         agent: { model },
-        [providerId]: { apiKey: apiKey.trim() },
+        [configKey]: { apiKey: apiKey.trim() },
       });
 
       // Force gateway to reload auth store (auth-profiles.json is cached in memory at startup)

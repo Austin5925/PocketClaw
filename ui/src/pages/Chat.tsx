@@ -83,9 +83,7 @@ export function Chat() {
   const currentProviderCfg = currentConfigKey
     ? (config?.[currentConfigKey] as Record<string, unknown> | undefined)
     : undefined;
-  const hasApiKey = Boolean(
-    currentProviderCfg?.apiKey && !String(currentProviderCfg.apiKey).startsWith("****"),
-  );
+  const hasApiKey = Boolean(currentProviderCfg?.apiKey);
 
   const handleModelChange = async (model: string) => {
     setShowModelSelect(false);
@@ -93,7 +91,7 @@ export function Chat() {
     const providerCfg = configKey
       ? (config?.[configKey] as Record<string, unknown> | undefined)
       : undefined;
-    if (!providerCfg?.apiKey || String(providerCfg.apiKey).startsWith("****")) {
+    if (!providerCfg?.apiKey) {
       showToast("请先在设置中配置该模型的 API Key", "error");
       return;
     }
