@@ -429,22 +429,12 @@ export function Settings() {
             <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
               <p>口袋龙虾 — 便携 AI 助手</p>
               <p>基于 OpenClaw (MIT) 构建</p>
-              <div className="flex gap-3 pt-2">
+              <div className="pt-2">
                 <a
-                  href="https://github.com/Austin5925/PocketClaw"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="mailto:ausdina@proton.me"
                   className="text-indigo-600 hover:underline"
                 >
-                  GitHub
-                </a>
-                <a
-                  href="https://github.com/Austin5925/PocketClaw/issues"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-indigo-600 hover:underline"
-                >
-                  反馈
+                  反馈建议
                 </a>
               </div>
             </div>
