@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-03-23
+
+### Added
+
+- **品牌重塑**: 所有用户可见文本从 "PocketClaw" 更名为 "口袋龙虾"，终端 banner、UI 标题、日志前缀全部更新
+- **OpenClaw Logo**: 替换 emoji 龙虾为 OpenClaw 官方 SVG 龙虾 logo（红色渐变卡通风格），Sidebar 和 favicon 统一
+- **每个 Provider 独立 API Key 卡片**: 设置页从单输入框改为 9 张 provider 配置卡片（国内 6 + 海外 3），支持独立保存、验证、设为默认
+- **飞书/QQ/微信频道配置**: 在设置页和 Channels 页面添加飞书（WebSocket 模式）、QQ 机器人（官方平台）、微信（实验性）的配置入口
+- **4 步引导流程**: Onboarding 从 2 步扩展为：欢迎 → 选模型 → 配频道（可选）→ 进入简约聊天
+- **一键更新**: 设置页新增 "一键更新" 按钮，后台从 GitHub Release 下载、校验、备份、解压，支持进度显示
+- **频道配置透传**: server.js 和 Go launcher 同步 `channels.*` 配置到 OpenClaw 内部 config，支持 hot-reload 启动频道监控
+
+### Fixed
+
+- **AI 空气泡 (P0)**: Gateway 发送空内容 delta/final 事件时产生空白气泡。修复三层防御：final 空内容转系统消息、ChatBubble 空内容返回 null、历史消息过滤空 assistant
+- **Windows 首次启动失败 (P0)**: `syncInternalConfig` 在空 config 时被跳过，导致 gateway auth 配置缺失，UI 无法连接。修复：始终执行 sync
+- **setup.bat 自拷贝 bug**: `copy "X" "X"` 源=目标=空操作，改为创建空 JSON 文件
+- **Gateway 日志丢失**: supervisor 模式下 gateway stdout/stderr 被丢弃，现写入 pocketclaw.log
+- **WS 重连过早放弃**: maxReconnectAttempts 从 5 提升到 20（~5 分钟）
+- **Settings 返回按钮**: 指向不存在的 /dashboard 路由，改为 /
+- **Dashboard hasApiKey**: 未经过 getProviderConfigKey 映射，导致 Kimi/GLM 等 provider 误判
+- **关于页面链接**: 移除 GitHub 链接，反馈改为 mailto:ausdina@proton.me
+
+### Changed
+
+- **OpenClaw 升级**: 2026.3.13 → 2026.3.22（原生 MiniMax M2.7、Gateway 冷启动优化、exec 沙箱）
+
 ## [1.1.35] - 2026-03-21
 
 ### Fixed
