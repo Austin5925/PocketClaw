@@ -68,7 +68,7 @@ export function Onboarding() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4">
       <div className="w-full max-w-lg">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-900">欢迎使用 PocketClaw</h1>
+          <h1 className="text-3xl font-bold text-gray-900">欢迎使用口袋龙虾</h1>
           <p className="mt-2 text-gray-500">便携 AI 助手，插上即用</p>
         </div>
 

@@ -15,7 +15,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 
   componentDidCatch(error: Error) {
-    console.error("[PocketClaw] Uncaught error:", error);
+    console.error("[口袋龙虾] Uncaught error:", error);
   }
 
   render() {

@@ -1,7 +1,7 @@
 {
   "name": "pocketclaw-system",
   "version": "1.0.0",
-  "description": "PocketClaw system server scripts",
+  "description": "口袋龙虾 system server scripts",
   "engines": {
     "node": ">=22"
   },

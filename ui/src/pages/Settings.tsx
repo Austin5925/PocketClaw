@@ -135,7 +135,7 @@ export function Settings() {
           <div className="rounded-2xl border border-gray-200 bg-white p-5">
             <h3 className="mb-3 font-semibold text-gray-900">关于</h3>
             <div className="space-y-1 text-sm text-gray-600">
-              <p>PocketClaw — 便携 AI 助手</p>
+              <p>口袋龙虾 — 便携 AI 助手</p>
               <p>基于 OpenClaw (MIT) 构建</p>
               <div className="flex gap-3 pt-2">
                 <a

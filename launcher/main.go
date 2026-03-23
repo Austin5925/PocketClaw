@@ -30,7 +30,7 @@ func main() {
 	setupLogging()
 	defer logFile.Close()
 
-	logMsg("PocketClaw 启动中...")
+	logMsg("口袋龙虾启动中...")
 	logMsg("版本: " + readVersion())
 	logMsg("工作目录: " + baseDir)
 
@@ -41,7 +41,7 @@ func main() {
 			nodeBin = detectNode()
 		}
 		if nodeBin == "" {
-			showError("运行环境不完整：Node.js 未找到。\n请重新获取 PocketClaw 完整版本。")
+			showError("运行环境不完整：Node.js 未找到。\n请重新获取口袋龙虾完整版本。")
 			return
 		}
 	}
@@ -54,20 +54,20 @@ func main() {
 			openclawEntry = detectOpenClawEntry()
 		}
 		if openclawEntry == "" {
-			showError("运行环境不完整：AI 引擎未找到。\n请重新获取 PocketClaw 完整版本。")
+			showError("运行环境不完整：AI 引擎未找到。\n请重新获取口袋龙虾完整版本。")
 			return
 		}
 	}
 	logMsg("OpenClaw: " + openclawEntry)
 
 	if !fileExists(filepath.Join(baseDir, "app", "ui", "dist", "index.html")) {
-		showError("运行环境不完整：界面文件未找到。\n请重新获取 PocketClaw 完整版本。")
+		showError("运行环境不完整：界面文件未找到。\n请重新获取口袋龙虾完整版本。")
 		return
 	}
 
 	serverJs := filepath.Join(baseDir, "system", "server.js")
 	if !fileExists(serverJs) {
-		showError("运行环境不完整：服务脚本未找到。\n请重新获取 PocketClaw 完整版本。")
+		showError("运行环境不完整：服务脚本未找到。\n请重新获取口袋龙虾完整版本。")
 		return
 	}
 
@@ -146,7 +146,7 @@ func main() {
 
 	logMsg("正在打开浏览器...")
 	openBrowser("http://localhost:" + uiPort)
-	logMsg("PocketClaw 已启动！")
+	logMsg("口袋龙虾已启动！")
 	logMsg("如果浏览器没有自动打开，请手动访问: http://localhost:" + uiPort)
 
 	sigCh := make(chan os.Signal, 1)
@@ -590,7 +590,7 @@ func openBrowser(url string) {
 
 func showError(msg string) {
 	logMsg("ERROR: " + msg)
-	fmt.Fprintf(os.Stderr, "\n[PocketClaw 错误] %s\n", msg)
+	fmt.Fprintf(os.Stderr, "\n[口袋龙虾错误] %s\n", msg)
 	fmt.Println("\n按 Enter 键退出...")
 	fmt.Scanln()
 }
@@ -613,7 +613,7 @@ func showErrorWithLog(msg string) {
 		fmt.Println("--- 日志结束 ---")
 		fmt.Printf("\n完整日志: %s\n", logPath)
 	}
-	fmt.Fprintf(os.Stderr, "\n[PocketClaw 错误] %s\n", msg)
+	fmt.Fprintf(os.Stderr, "\n[口袋龙虾错误] %s\n", msg)
 	fmt.Println("\n按 Enter 键退出...")
 	fmt.Scanln()
 }

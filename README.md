@@ -1,10 +1,10 @@
-# PocketClaw
+# 口袋龙虾 (PocketClaw)
 
 **便携 AI 助手 — 插上 U 盘，双击即用**
 
 [English](README_EN.md)
 
-基于 [OpenClaw](https://github.com/openclaw/openclaw) (MIT) 构建的便携 U 盘 AI 助手。将完整的 AI 助手装进 U 盘，插上任何 Mac 或 Windows 电脑即可使用，**无需安装任何软件，无需打开命令行**。
+基于 [OpenClaw](https://github.com/openclaw/openclaw) (MIT) 构建的便携 U 盘 AI 助手。将完整的 AI 助手装进 U 盘，插上任何 Mac 或 Windows 电脑即可使用，**无需安装任何软件，无需打开命令行**。（英文名 PocketClaw）
 
 ## 使用方法
 

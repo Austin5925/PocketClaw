@@ -19,7 +19,7 @@ declare -A NODE_SHA256=(
     ["win-x64"]="877cb93829e14fffbbc7903e7d8037336c9a79f3ea43c5d0b8c2379b79da56de"
 )
 
-log() { echo "[PocketClaw Setup] $*"; }
+log() { echo "[口袋龙虾] $*"; }
 error() { echo "[ERROR] $*" >&2; exit 1; }
 
 verify_sha256() {
@@ -139,7 +139,7 @@ setup_data() {
 }
 
 main() {
-    log "=== PocketClaw Setup ==="
+    log "=== 口袋龙虾 Setup ==="
     log "Base directory: $BASE_DIR"
 
     local mode="${1:-all}"

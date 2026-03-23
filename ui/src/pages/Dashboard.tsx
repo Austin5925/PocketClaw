@@ -42,7 +42,7 @@ export function Dashboard() {
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4 md:p-8">
       <div className="mx-auto max-w-2xl">
         <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">PocketClaw</h1>
+          <h1 className="text-2xl font-bold text-gray-900">口袋龙虾</h1>
           <Link
             to="/settings"
             className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"

@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢你对 PocketClaw 的关注！欢迎提交 Issue 和 Pull Request。
+感谢你对口袋龙虾的关注！欢迎提交 Issue 和 Pull Request。
 
 ## 开发环境
 

@@ -1,10 +1,10 @@
-# PocketClaw
+# 口袋龙虾 (PocketClaw)
 
 **Portable AI Assistant — Plug in a USB drive, double-click, and go**
 
 [中文](README.md)
 
-A portable USB AI assistant built on [OpenClaw](https://github.com/openclaw/openclaw) (MIT). Carry a full AI assistant on a USB drive and use it on any Mac or Windows computer — **no installation required, no command line needed**.
+A portable USB AI assistant built on [OpenClaw](https://github.com/openclaw/openclaw) (MIT). Carry a full AI assistant on a USB drive and use it on any Mac or Windows computer — **no installation required, no command line needed**. (Chinese name: 口袋龙虾)
 
 ## How to Use
 

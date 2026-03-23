@@ -551,10 +551,10 @@ if (process.argv.includes("--supervisor")) {
   const startUI = () => {
     log("正在启动界面...");
     server.listen(UI_PORT, "127.0.0.1", () => {
-      log("PocketClaw 已启动！");
+      log("口袋龙虾已启动！");
       log(`浏览器地址: http://localhost:${UI_PORT}`);
       log("");
-      log("关闭此窗口即可退出 PocketClaw");
+      log("关闭此窗口即可退出口袋龙虾");
       openBrowser(`http://localhost:${UI_PORT}`);
     });
   };
@@ -563,9 +563,9 @@ if (process.argv.includes("--supervisor")) {
 } else {
   // Normal mode: just start the UI server (gateway managed by Go launcher)
   server.listen(UI_PORT, "127.0.0.1", () => {
-    console.log(`[PocketClaw UI] Server running at http://localhost:${UI_PORT}`);
+    console.log(`[口袋龙虾 UI] Server running at http://localhost:${UI_PORT}`);
     console.log(
-      `[PocketClaw UI] Gateway proxy: ws://localhost:${UI_PORT}/ws -> ws://${GATEWAY_HOST}:${GATEWAY_PORT}`,
+      `[口袋龙虾 UI] Gateway proxy: ws://localhost:${UI_PORT}/ws -> ws://${GATEWAY_HOST}:${GATEWAY_PORT}`,
     );
   });
 }

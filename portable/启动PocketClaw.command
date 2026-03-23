@@ -1,10 +1,10 @@
 #!/bin/bash
 clear
 echo ""
-echo "  🦞 PocketClaw"
+echo "  口袋龙虾"
 echo ""
 echo "  正在启动，请稍候..."
-echo "  （此窗口为 PocketClaw 运行窗口，请勿关闭）"
+echo "  （此窗口为口袋龙虾运行窗口，请勿关闭）"
 echo ""
 
 DIR="$(cd "$(dirname "$0")" && pwd)"

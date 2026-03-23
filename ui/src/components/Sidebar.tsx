@@ -53,7 +53,7 @@ export function Sidebar({
         <div className="flex items-center gap-2">
           <span className="text-xl">🦞</span>
           <div>
-            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">PocketClaw</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">口袋龙虾</p>
             <p className="text-[10px] text-gray-400">简约模式</p>
           </div>
         </div>

@@ -7,7 +7,7 @@ VERSION_FILE="$BASE_DIR/version.txt"
 BACKUP_DIR="$BASE_DIR/data/backups"
 GITHUB_REPO="Austin5925/PocketClaw"
 
-log() { echo "[PocketClaw Update] $*"; }
+log() { echo "[口袋龙虾] $*"; }
 error() { echo "[ERROR] $*" >&2; exit 1; }
 
 get_current_version() {
@@ -96,7 +96,7 @@ run_migration() {
 }
 
 main() {
-    log "=== PocketClaw Update ==="
+    log "=== 口袋龙虾 Update ==="
 
     local current=$(get_current_version)
     log "Current version: v${current}"
@@ -122,7 +122,7 @@ main() {
     run_migration
 
     log "=== Update Complete ==="
-    log "Please restart PocketClaw to apply the update."
+    log "Please restart 口袋龙虾 to apply the update."
 }
 
 main "$@"
