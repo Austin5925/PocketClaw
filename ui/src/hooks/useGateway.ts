@@ -198,9 +198,14 @@ export function useGateway(): UseGatewayReturn {
             const msgId = runIdToMsgId.current.get(runId)!;
             const text = msg ? extractText(msg) : "";
             setMessages((prev) =>
-              prev.map((m) =>
-                m.id === msgId ? { ...m, ...(text ? { content: text } : {}), pending: false } : m,
-              ),
+              prev.map((m) => {
+                if (m.id !== msgId) return m;
+                const finalContent = text || m.content;
+                if (!finalContent) {
+                  return { ...m, content: "AI 未返回内容", pending: false, role: "system" as const };
+                }
+                return { ...m, ...(text ? { content: text } : {}), pending: false };
+              }),
             );
             runIdToMsgId.current.delete(runId);
             if (runIdToMsgId.current.size === 0) setPending(false);
@@ -284,7 +289,11 @@ export function useGateway(): UseGatewayReturn {
         // chat.history response — replace messages with loaded history
         if (payload?.messages && Array.isArray(payload.messages)) {
           const history = (payload.messages as Array<Record<string, unknown>>)
-            .filter((m) => m.role === "user" || m.role === "assistant")
+            .filter((m) => {
+              if (m.role === "user") return true;
+              if (m.role === "assistant") return Boolean(extractText(m));
+              return false;
+            })
             .map((m) => {
               const text = extractText(m);
               return {

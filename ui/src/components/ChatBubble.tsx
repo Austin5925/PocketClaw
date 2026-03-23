@@ -19,6 +19,10 @@ export function ChatBubble({ message, onRegenerate }: ChatBubbleProps) {
     setTimeout(() => setCopied(false), 1500);
   };
 
+  if (!isUser && !isSystem && !message.pending && !message.content) {
+    return null;
+  }
+
   if (isSystem) {
     return (
       <div className="flex justify-center">
