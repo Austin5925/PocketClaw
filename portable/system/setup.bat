@@ -90,7 +90,7 @@ mkdir "%BASE_DIR%data\memory" 2>nul
 mkdir "%BASE_DIR%data\backups" 2>nul
 
 if not exist "%BASE_DIR%data\.openclaw\openclaw.json" (
-    copy "%BASE_DIR%data\.openclaw\openclaw.json" "%BASE_DIR%data\.openclaw\openclaw.json" 2>nul
+    echo {}> "%BASE_DIR%data\.openclaw\openclaw.json"
 )
 echo [PocketClaw Setup] Data directories ready
 goto :eof

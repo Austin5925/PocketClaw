@@ -470,11 +470,14 @@ if (process.argv.includes("--supervisor")) {
   process.env.PATH = path.join(BASE_DIR, "app", "runtime", "node-win-x64") +
     path.delimiter + process.env.PATH;
 
-  if (config && Object.keys(config).length > 0) {
+  // Always sync internal config (gateway auth settings) even on first run with empty config.
+  // Without this, gateway.auth.mode="none" and dangerouslyDisableDeviceAuth=true are never
+  // written, causing the gateway to reject UI WebSocket connections on fresh installs.
+  syncInternalConfig(config);
+  if (Object.keys(config).length > 0) {
     syncAuthProfiles(config);
-    syncInternalConfig(config);
-    log("配置同步完成");
   }
+  log("配置同步完成");
 
   // 2. Find OpenClaw
   const openclawEntry = findOpenClawEntry();
@@ -490,8 +493,11 @@ if (process.argv.includes("--supervisor")) {
     [openclawEntry, "gateway", "--port", String(GATEWAY_PORT), "--allow-unconfigured"],
     { cwd: BASE_DIR, stdio: ["ignore", "pipe", "pipe"] },
   );
-  gatewayProcess.stdout.on("data", () => {});
-  gatewayProcess.stderr.on("data", () => {});
+  // Write gateway output to log file for diagnostics
+  const logPath = path.join(DATA_DIR, "pocketclaw.log");
+  const logStream = fs.createWriteStream(logPath, { flags: "a", mode: 0o600 });
+  gatewayProcess.stdout.on("data", (chunk) => logStream.write(chunk));
+  gatewayProcess.stderr.on("data", (chunk) => logStream.write(chunk));
 
   // Cleanup on exit
   const cleanup = () => {
