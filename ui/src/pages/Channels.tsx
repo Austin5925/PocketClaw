@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useGatewayConnection } from "../hooks/GatewayContext";
 import type { WebSocketMessage } from "../utils/websocket";
 
@@ -49,11 +50,31 @@ export function Channels() {
   return (
     <div className="h-full overflow-y-auto p-6">
       <div className="mx-auto max-w-2xl">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Channels</h2>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">聊天平台</h2>
+          <Link
+            to="/settings"
+            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          >
+            配置频道
+          </Link>
+        </div>
+
         {loading && <p className="text-sm text-gray-500">加载中...</p>}
+
         {!loading && channels.length === 0 && (
-          <p className="text-sm text-gray-500 dark:text-gray-400">暂无已配置的通道</p>
+          <div className="rounded-xl border-2 border-dashed border-gray-200 p-8 text-center dark:border-gray-700">
+            <p className="text-sm text-gray-500 dark:text-gray-400">暂无已配置的聊天平台</p>
+            <p className="mt-2 text-xs text-gray-400">
+              前往{" "}
+              <Link to="/settings" className="text-indigo-600 hover:underline dark:text-indigo-400">
+                设置
+              </Link>{" "}
+              配置飞书、QQ 或微信
+            </p>
+          </div>
         )}
+
         <div className="space-y-3">
           {channels.map((ch) => (
             <div
@@ -74,22 +95,16 @@ export function Channels() {
                   <span className="text-xs text-gray-400">
                     {a.connected ? "已连接" : a.running ? "运行中" : "未连接"}
                   </span>
+                  {a.lastError && (
+                    <span className="text-xs text-red-500" title={a.lastError}>
+                      错误
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
           ))}
         </div>
-        <p className="mt-6 text-center text-xs text-gray-400">
-          通道配置请使用{" "}
-          <a
-            href="http://localhost:18789"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-indigo-600 hover:underline dark:text-indigo-400"
-          >
-            OpenClaw 高级模式
-          </a>
-        </p>
       </div>
     </div>
   );
