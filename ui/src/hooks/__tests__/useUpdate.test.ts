@@ -125,4 +125,17 @@ describe("useUpdate", () => {
 
     expect(result.current.error).toBeTruthy();
   });
+
+  it("exposes triggerUpdate and updateStatus with correct defaults", () => {
+    const { result } = renderHook(() => useUpdate());
+
+    expect(typeof result.current.triggerUpdate).toBe("function");
+    expect(result.current.updating).toBe(false);
+    expect(result.current.updateStatus).toEqual({
+      status: "idle",
+      progress: 0,
+      error: null,
+      version: null,
+    });
+  });
 });

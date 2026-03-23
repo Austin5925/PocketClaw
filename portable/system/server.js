@@ -270,6 +270,202 @@ function handleApiVersion(res) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// One-click update: /api/update (POST) + /api/update/status (GET)
+// ---------------------------------------------------------------------------
+
+let updateState = { status: "idle", progress: 0, error: null, version: null };
+
+async function startUpdate() {
+  const https = require("https");
+  const { execSync } = require("child_process");
+
+  try {
+    updateState = { status: "checking", progress: 5, error: null, version: null };
+
+    // 1. Get latest version from GitHub API
+    const latestData = await new Promise((resolve, reject) => {
+      https.get(
+        "https://api.github.com/repos/Austin5925/PocketClaw/releases/latest",
+        {
+          headers: {
+            "User-Agent": "PocketClaw",
+            Accept: "application/vnd.github.v3+json",
+          },
+          timeout: 10000,
+        },
+        (res) => {
+          let data = "";
+          res.on("data", (c) => (data += c));
+          res.on("end", () => {
+            try {
+              resolve(JSON.parse(data));
+            } catch (e) {
+              reject(e);
+            }
+          });
+        },
+      ).on("error", reject);
+    });
+
+    const latestVersion = latestData.tag_name?.replace(/^v/, "");
+    if (!latestVersion) throw new Error("无法获取最新版本信息");
+
+    // Check current version
+    const currentVersion = fs
+      .readFileSync(path.join(BASE_DIR, "version.txt"), "utf-8")
+      .trim();
+    if (currentVersion === latestVersion) {
+      updateState = { status: "idle", progress: 0, error: null, version: null };
+      return { alreadyUpToDate: true };
+    }
+
+    updateState = {
+      status: "downloading",
+      progress: 20,
+      error: null,
+      version: latestVersion,
+    };
+
+    // 2. Download update zip
+    const updateUrl = `https://github.com/Austin5925/PocketClaw/releases/download/v${latestVersion}/PocketClaw-v${latestVersion}-update.zip`;
+    const tmpFile = path.join(
+      require("os").tmpdir(),
+      `pocketclaw-update-${latestVersion}.zip`,
+    );
+
+    await new Promise((resolve, reject) => {
+      const file = fs.createWriteStream(tmpFile);
+      const download = (url) => {
+        https
+          .get(
+            url,
+            { headers: { "User-Agent": "PocketClaw" }, timeout: 60000 },
+            (res) => {
+              if (
+                res.statusCode >= 300 &&
+                res.statusCode < 400 &&
+                res.headers.location
+              ) {
+                download(res.headers.location); // follow redirect
+                return;
+              }
+              if (res.statusCode !== 200) {
+                reject(new Error(`下载失败: HTTP ${res.statusCode}`));
+                return;
+              }
+              res.pipe(file);
+              file.on("finish", () => {
+                file.close();
+                resolve();
+              });
+            },
+          )
+          .on("error", reject);
+      };
+      download(updateUrl);
+    });
+
+    updateState.status = "backing_up";
+    updateState.progress = 50;
+
+    // 3. Backup
+    const backupDir = path.join(DATA_DIR, "backups");
+    const timestamp = new Date()
+      .toISOString()
+      .replace(/[:.]/g, "-")
+      .slice(0, 19);
+    const backupPath = path.join(
+      backupDir,
+      `app-${currentVersion}-${timestamp}`,
+    );
+    fs.mkdirSync(backupPath, { recursive: true });
+    // Simple backup: copy version.txt
+    fs.copyFileSync(
+      path.join(BASE_DIR, "version.txt"),
+      path.join(backupPath, "version.txt"),
+    );
+
+    updateState.status = "extracting";
+    updateState.progress = 70;
+
+    // 4. Extract (use unzip on Mac, PowerShell on Windows)
+    if (process.platform === "win32") {
+      execSync(
+        `powershell -Command "Expand-Archive -Path '${tmpFile}' -DestinationPath '${BASE_DIR}' -Force"`,
+        { timeout: 60000 },
+      );
+    } else {
+      execSync(`unzip -qo "${tmpFile}" -d "${BASE_DIR}"`, { timeout: 60000 });
+    }
+
+    // 5. Update version.txt
+    fs.writeFileSync(path.join(BASE_DIR, "version.txt"), latestVersion);
+
+    // 6. Run migrate.js if exists
+    updateState.status = "migrating";
+    updateState.progress = 90;
+    const migrateScript = path.join(SCRIPT_DIR, "migrate.js");
+    if (fs.existsSync(migrateScript)) {
+      try {
+        execSync(`"${process.execPath}" "${migrateScript}" "${BASE_DIR}"`, {
+          timeout: 30000,
+        });
+      } catch {
+        /* migration warnings ok */
+      }
+    }
+
+    // Cleanup
+    try {
+      fs.unlinkSync(tmpFile);
+    } catch {
+      /* ok */
+    }
+
+    updateState = {
+      status: "complete",
+      progress: 100,
+      error: null,
+      version: latestVersion,
+    };
+    return { success: true, version: latestVersion };
+  } catch (err) {
+    updateState = {
+      status: "error",
+      progress: 0,
+      error: err.message || "更新失败",
+      version: null,
+    };
+    throw err;
+  }
+}
+
+function handleApiUpdate(req, res) {
+  if (req.method !== "POST") {
+    res.writeHead(405, SECURITY_HEADERS);
+    res.end();
+    return;
+  }
+
+  if (updateState.status !== "idle" && updateState.status !== "error" && updateState.status !== "complete") {
+    jsonResponse(res, 409, { error: "更新正在进行中" });
+    return;
+  }
+
+  startUpdate()
+    .then((result) => {
+      jsonResponse(res, 200, result);
+    })
+    .catch((err) => {
+      jsonResponse(res, 500, { error: err.message || "更新失败" });
+    });
+}
+
+function handleApiUpdateStatus(res) {
+  jsonResponse(res, 200, updateState);
+}
+
 function handleApiHealth(res) {
   const gatewayUrl = `http://${GATEWAY_HOST}:${GATEWAY_PORT}/health`;
   const reqLib = require("http");
@@ -407,6 +603,9 @@ const server = http.createServer((req, res) => {
   if (pathname === "/api/validate-key") return handleApiValidateKey(req, res);
   if (pathname === "/api/version") return handleApiVersion(res);
   if (pathname === "/api/health") return handleApiHealth(res);
+  if (pathname === "/api/update" && req.method === "POST")
+    return handleApiUpdate(req, res);
+  if (pathname === "/api/update/status") return handleApiUpdateStatus(res);
 
   const filePath = path.join(UI_DIR, pathname === "/" ? "index.html" : pathname);
   if (serveStatic(res, filePath)) return;
