@@ -90,6 +90,26 @@ jobs:
           npm init -y
           npm install openclaw@2026.3.22
 
+      - name: Build OpenClaw Control UI
+        run: |
+          OPENCLAW_PKG="portable/app/core/node_modules/openclaw"
+          OPENCLAW_VER=$(node -e "console.log(require('./${OPENCLAW_PKG}/package.json').version)")
+          echo "Building Control UI for OpenClaw v${OPENCLAW_VER}..."
+
+          # Clone matching OpenClaw source to build the Lit-based Control UI
+          git clone --depth 1 --branch "v${OPENCLAW_VER}" \
+            https://github.com/openclaw/openclaw.git /tmp/openclaw-src || \
+          git clone --depth 1 https://github.com/openclaw/openclaw.git /tmp/openclaw-src
+
+          cd /tmp/openclaw-src
+          pnpm install --frozen-lockfile || pnpm install
+          node scripts/ui.js build || pnpm ui:build
+
+          # Copy built assets to portable/dist/control-ui/ (gateway discovers via cwd)
+          mkdir -p "${GITHUB_WORKSPACE}/portable/dist/control-ui"
+          cp -R dist/control-ui/* "${GITHUB_WORKSPACE}/portable/dist/control-ui/"
+          echo "Control UI built: $(ls ${GITHUB_WORKSPACE}/portable/dist/control-ui/ | wc -l) files"
+
       - name: Pre-install ClawHub skills
         run: |
           export OPENCLAW_HOME="portable/data/.openclaw"
@@ -142,7 +162,7 @@ jobs:
           VERSION="${{ needs.check-version.outputs.version }}"
           cd portable
           zip -r "../PocketClaw-v${VERSION}-update.zip" \
-            app/ui/ app/core/ system/ version.txt
+            app/ui/ app/core/ dist/control-ui/ system/ version.txt
 
       - uses: actions/upload-artifact@v4
         with:
@@ -199,6 +219,25 @@ jobs:
           cd portable/app/core
           npm init -y
           npm install openclaw@2026.3.22
+
+      - name: Build OpenClaw Control UI
+        shell: bash
+        run: |
+          OPENCLAW_PKG="portable/app/core/node_modules/openclaw"
+          OPENCLAW_VER=$(node -e "console.log(require('./${OPENCLAW_PKG}/package.json').version)")
+          echo "Building Control UI for OpenClaw v${OPENCLAW_VER}..."
+
+          git clone --depth 1 --branch "v${OPENCLAW_VER}" \
+            https://github.com/openclaw/openclaw.git /tmp/openclaw-src || \
+          git clone --depth 1 https://github.com/openclaw/openclaw.git /tmp/openclaw-src
+
+          cd /tmp/openclaw-src
+          pnpm install --frozen-lockfile || pnpm install
+          node scripts/ui.js build || pnpm ui:build
+
+          mkdir -p "${GITHUB_WORKSPACE}/portable/dist/control-ui"
+          cp -R dist/control-ui/* "${GITHUB_WORKSPACE}/portable/dist/control-ui/"
+          echo "Control UI built: $(ls ${GITHUB_WORKSPACE}/portable/dist/control-ui/ | wc -l) files"
 
       - name: Pre-install ClawHub skills
         shell: bash

@@ -12,7 +12,9 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- **18789 不可用**: OpenClaw npm 包（3.13/3.22）均不含预编译 Control UI，直连 18789 必报错。改为先在 3210 完成引导，再尝试跳转
+- **18789 Control UI 修复**: OpenClaw npm 包不含预编译 Control UI 前端。CI 现在从 OpenClaw 源码仓库构建 Lit SPA 并打包到 `portable/dist/control-ui/`，gateway 通过 cwd 发现机制自动加载。release zip + update zip 均包含
+- **Settings 左侧 Tab 导航**: 将设置页拆分为 3 个 Tab（模型 API Key / 频道接入 / 关于与更新），解决频道配置需要滚动很久才能找到的问题
+- **PostSetup 不再覆盖当前页**: "打开AI界面"改为 `target="_blank"` 新窗口打开
 
 ## [1.2.2] - 2026-03-24
 

@@ -124,6 +124,14 @@ install_openclaw() {
 
     log "OpenClaw installed successfully"
     "$node_bin" "$npm_bin" list --prefix "$CORE_DIR" openclaw 2>/dev/null || true
+
+    # Control UI (port 18789 web interface) is NOT included in the npm package.
+    # Release packages built by CI include pre-built assets at dist/control-ui/.
+    # For development: clone openclaw repo, run `pnpm ui:build`, copy dist/control-ui/ to portable/dist/control-ui/
+    if [ ! -f "$BASE_DIR/dist/control-ui/index.html" ]; then
+        log "NOTE: Control UI assets not found at dist/control-ui/. Port 18789 UI will not be available."
+        log "      Release packages include pre-built assets. For dev: see setup.sh comments."
+    fi
 }
 
 setup_data() {
