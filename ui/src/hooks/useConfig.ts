@@ -68,9 +68,10 @@ export function useConfig(): UseConfigReturn {
         updates as Record<string, unknown>,
       ) as OpenClawConfig;
       await saveConfig(merged);
-      setConfig(merged);
+      // Reload from server to get masked keys (never store real keys in local state)
+      await reload();
     },
-    [config],
+    [config, reload],
   );
 
   const setModel = useCallback(

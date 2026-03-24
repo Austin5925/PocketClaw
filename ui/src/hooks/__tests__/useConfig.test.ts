@@ -64,19 +64,31 @@ describe("useConfig", () => {
   });
 
   it("deep merges nested fields on updateConfig (does not overwrite sibling keys)", async () => {
+    const initialConfig = {
+      agent: { model: "minimax/MiniMax-M2.7" },
+      minimax: { apiKey: "****key" },
+      gateway: { port: 18789 },
+    };
+    // After save, server returns merged config with masked keys
+    const reloadedConfig = {
+      agent: { model: "deepseek/deepseek-chat" },
+      minimax: { apiKey: "****key" },
+      gateway: { port: 18789 },
+    };
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
         ok: true,
-        json: () =>
-          Promise.resolve({
-            agent: { model: "minimax/MiniMax-M2.7" },
-            minimax: { apiKey: "old-key" },
-            gateway: { port: 18789 },
-          }),
+        json: () => Promise.resolve(initialConfig),
       } as Response)
       .mockResolvedValueOnce({
+        // PUT /api/config save
         ok: true,
         json: () => Promise.resolve({ success: true }),
+      } as Response)
+      .mockResolvedValueOnce({
+        // GET /api/config reload after save
+        ok: true,
+        json: () => Promise.resolve(reloadedConfig),
       } as Response);
 
     const { result } = renderHook(() => useConfig());
@@ -90,6 +102,10 @@ describe("useConfig", () => {
       await result.current.updateConfig({ agent: { model: "deepseek/deepseek-chat" } });
     });
 
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
     expect(result.current.config?.agent?.model).toBe("deepseek/deepseek-chat");
     // gateway must not be wiped out by the shallow-merge bug
     expect((result.current.config as Record<string, unknown> | null)?.gateway).toEqual({
@@ -98,14 +114,24 @@ describe("useConfig", () => {
   });
 
   it("updates config via setModel", async () => {
+    const reloadedConfig = {
+      ...mockConfig,
+      agent: { model: "openai/gpt-4o" },
+    };
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockConfig),
       } as Response)
       .mockResolvedValueOnce({
+        // PUT /api/config save
         ok: true,
         json: () => Promise.resolve({ success: true }),
+      } as Response)
+      .mockResolvedValueOnce({
+        // GET /api/config reload after save
+        ok: true,
+        json: () => Promise.resolve(reloadedConfig),
       } as Response);
 
     const { result } = renderHook(() => useConfig());
@@ -116,6 +142,10 @@ describe("useConfig", () => {
 
     await act(async () => {
       await result.current.setModel("openai/gpt-4o");
+    });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
     });
 
     expect(result.current.config?.agent?.model).toBe("openai/gpt-4o");

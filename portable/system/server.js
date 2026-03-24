@@ -608,19 +608,30 @@ const server = http.createServer((req, res) => {
     return handleApiUpdate(req, res);
   if (pathname === "/api/update/status") return handleApiUpdateStatus(res);
 
-  const filePath = path.join(UI_DIR, pathname === "/" ? "index.html" : pathname);
-  if (serveStatic(res, filePath)) return;
+  // Simple mode UI serving is disabled — browser opens port 18789 (OpenClaw native UI) directly.
+  // The code below is preserved for reference; uncomment to re-enable the custom React UI.
+  //
+  // const filePath = path.join(UI_DIR, pathname === "/" ? "index.html" : pathname);
+  // if (serveStatic(res, filePath)) return;
+  //
+  // const indexPath = path.join(UI_DIR, "index.html");
+  // if (serveStatic(res, indexPath)) return;
 
-  const indexPath = path.join(UI_DIR, "index.html");
-  if (serveStatic(res, indexPath)) return;
+  // Redirect root to OpenClaw native UI
+  if (pathname === "/" || pathname === "/index.html") {
+    res.writeHead(302, { ...SECURITY_HEADERS, Location: `http://localhost:${GATEWAY_PORT}` });
+    res.end();
+    return;
+  }
 
   res.writeHead(404, SECURITY_HEADERS);
   res.end("Not Found");
 });
 
-server.on("upgrade", (req, socket, head) => {
-  createProxyServer(req, socket, head, GATEWAY_HOST, GATEWAY_PORT);
-});
+// WebSocket proxy to gateway disabled — browser now uses port 18789 directly.
+// server.on("upgrade", (req, socket, head) => {
+//   createProxyServer(req, socket, head, GATEWAY_HOST, GATEWAY_PORT);
+// });
 
 // ---------------------------------------------------------------------------
 // --supervisor mode: manage gateway lifecycle (used by .bat / .command launcher)

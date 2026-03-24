@@ -145,9 +145,9 @@ func main() {
 	time.Sleep(time.Second)
 
 	logMsg("正在打开浏览器...")
-	openBrowser("http://localhost:" + uiPort)
+	openBrowser("http://localhost:" + gatewayPort)
 	logMsg("口袋龙虾已启动！")
-	logMsg("如果浏览器没有自动打开，请手动访问: http://localhost:" + uiPort)
+	logMsg("如果浏览器没有自动打开，请手动访问: http://localhost:" + gatewayPort)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)

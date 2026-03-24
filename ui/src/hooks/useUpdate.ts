@@ -20,7 +20,15 @@ function compareSemver(a: string, b: string): number {
 }
 
 export interface UpdateStatus {
-  status: "idle" | "checking" | "downloading" | "backing_up" | "extracting" | "migrating" | "complete" | "error";
+  status:
+    | "idle"
+    | "checking"
+    | "downloading"
+    | "backing_up"
+    | "extracting"
+    | "migrating"
+    | "complete"
+    | "error";
   progress: number;
   error: string | null;
   version: string | null;

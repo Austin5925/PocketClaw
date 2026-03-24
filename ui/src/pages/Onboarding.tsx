@@ -137,9 +137,7 @@ export function Onboarding() {
           <div className="rounded-2xl bg-white p-8 shadow-xl ring-1 ring-gray-100">
             <div className="flex flex-col items-center py-8">
               <Logo size={80} className="mb-6" />
-              <h1 className="text-3xl font-bold text-gray-900">
-                欢迎使用口袋龙虾
-              </h1>
+              <h1 className="text-3xl font-bold text-gray-900">欢迎使用口袋龙虾</h1>
               <p className="mt-2 text-gray-500">便携 AI 助手，插上即用</p>
               <button
                 onClick={() => setStep(2)}
@@ -154,25 +152,17 @@ export function Onboarding() {
         {/* Step 2 — Model + API Key */}
         {step === 2 && (
           <div className="rounded-2xl bg-white p-8 shadow-xl ring-1 ring-gray-100">
-            <h2 className="mb-1 text-lg font-semibold text-gray-900">
-              选择 AI 模型
-            </h2>
-            <p className="mb-4 text-sm text-gray-500">
-              选择模型提供商并输入 API Key
-            </p>
+            <h2 className="mb-1 text-lg font-semibold text-gray-900">选择 AI 模型</h2>
+            <p className="mb-4 text-sm text-gray-500">选择模型提供商并输入 API Key</p>
             <ModelSelector value={model} onChange={setModel} />
 
             <div className="mt-6">
-              <h3 className="mb-2 text-sm font-medium text-gray-700">
-                输入 API Key
-              </h3>
+              <h3 className="mb-2 text-sm font-medium text-gray-700">输入 API Key</h3>
               <ApiKeyInput value={apiKey} onChange={setApiKey} />
               {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
               {(() => {
                 const providerId = model.split("/")[0] ?? "";
-                const provider = MODEL_PROVIDERS.find(
-                  (p) => p.id === providerId,
-                );
+                const provider = MODEL_PROVIDERS.find((p) => p.id === providerId);
                 const url = provider?.apiKeyUrl;
                 return url ? (
                   <a
@@ -208,43 +198,29 @@ export function Onboarding() {
         {/* Step 3 — Connect Channels (optional) */}
         {step === 3 && (
           <div className="rounded-2xl bg-white p-8 shadow-xl ring-1 ring-gray-100">
-            <h2 className="mb-1 text-lg font-semibold text-gray-900">
-              连接聊天平台（可选）
-            </h2>
-            <p className="mb-6 text-sm text-gray-500">
-              连接后可在聊天软件中直接使用 AI
-            </p>
+            <h2 className="mb-1 text-lg font-semibold text-gray-900">连接聊天平台（可选）</h2>
+            <p className="mb-6 text-sm text-gray-500">连接后可在聊天软件中直接使用 AI</p>
 
             <div className="space-y-3">
               {/* Feishu */}
               <ChannelCard
                 name="飞书"
-                icon={
-                  <FeishuIcon className="h-6 w-6 shrink-0 text-blue-500" />
-                }
+                icon={<FeishuIcon className="h-6 w-6 shrink-0 text-blue-500" />}
                 expanded={expandedChannel === "feishu"}
-                onToggle={() =>
-                  setExpandedChannel(
-                    expandedChannel === "feishu" ? null : "feishu",
-                  )
-                }
+                onToggle={() => setExpandedChannel(expandedChannel === "feishu" ? null : "feishu")}
               >
                 <input
                   type="text"
                   placeholder="App ID"
                   value={channels.feishu?.appId ?? ""}
-                  onChange={(e) =>
-                    toggleChannel("feishu", "appId", e.target.value)
-                  }
+                  onChange={(e) => toggleChannel("feishu", "appId", e.target.value)}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
                 />
                 <input
                   type="password"
                   placeholder="App Secret"
                   value={channels.feishu?.appSecret ?? ""}
-                  onChange={(e) =>
-                    toggleChannel("feishu", "appSecret", e.target.value)
-                  }
+                  onChange={(e) => toggleChannel("feishu", "appSecret", e.target.value)}
                   className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
                 />
               </ChannelCard>
@@ -254,26 +230,20 @@ export function Onboarding() {
                 name="QQ"
                 icon={<QQIcon className="h-6 w-6 shrink-0 text-sky-500" />}
                 expanded={expandedChannel === "qq"}
-                onToggle={() =>
-                  setExpandedChannel(expandedChannel === "qq" ? null : "qq")
-                }
+                onToggle={() => setExpandedChannel(expandedChannel === "qq" ? null : "qq")}
               >
                 <input
                   type="text"
                   placeholder="App ID"
                   value={channels.qq?.appId ?? ""}
-                  onChange={(e) =>
-                    toggleChannel("qq", "appId", e.target.value)
-                  }
+                  onChange={(e) => toggleChannel("qq", "appId", e.target.value)}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
                 />
                 <input
                   type="password"
                   placeholder="Client Secret"
                   value={channels.qq?.clientSecret ?? ""}
-                  onChange={(e) =>
-                    toggleChannel("qq", "clientSecret", e.target.value)
-                  }
+                  onChange={(e) => toggleChannel("qq", "clientSecret", e.target.value)}
                   className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
                 />
               </ChannelCard>
@@ -281,24 +251,16 @@ export function Onboarding() {
               {/* WeChat */}
               <ChannelCard
                 name="微信"
-                icon={
-                  <WeChatIcon className="h-6 w-6 shrink-0 text-green-500" />
-                }
+                icon={<WeChatIcon className="h-6 w-6 shrink-0 text-green-500" />}
                 badge="实验性功能"
                 expanded={expandedChannel === "wechat"}
-                onToggle={() =>
-                  setExpandedChannel(
-                    expandedChannel === "wechat" ? null : "wechat",
-                  )
-                }
+                onToggle={() => setExpandedChannel(expandedChannel === "wechat" ? null : "wechat")}
               >
                 <label className="flex items-center gap-2 text-sm text-gray-700">
                   <input
                     type="checkbox"
                     checked={channels.wechat?.enabled ?? false}
-                    onChange={(e) =>
-                      toggleChannel("wechat", "enabled", e.target.checked)
-                    }
+                    onChange={(e) => toggleChannel("wechat", "enabled", e.target.checked)}
                     className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                   />
                   启用微信接入
@@ -374,11 +336,7 @@ function ChannelCard({
 }) {
   return (
     <div className="rounded-xl border-2 border-gray-200 transition-colors">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center gap-3 p-4"
-      >
+      <button type="button" onClick={onToggle} className="flex w-full items-center gap-3 p-4">
         {icon}
         <span className="font-medium text-gray-900">{name}</span>
         {badge && (
@@ -392,12 +350,7 @@ function ChannelCard({
           stroke="currentColor"
           viewBox="0 0 24 24"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
       {expanded && <div className="border-t border-gray-100 px-4 pb-4 pt-3">{children}</div>}

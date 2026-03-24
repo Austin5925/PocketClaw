@@ -202,7 +202,12 @@ export function useGateway(): UseGatewayReturn {
                 if (m.id !== msgId) return m;
                 const finalContent = text || m.content;
                 if (!finalContent) {
-                  return { ...m, content: "AI 未返回内容", pending: false, role: "system" as const };
+                  return {
+                    ...m,
+                    content: "AI 未返回内容",
+                    pending: false,
+                    role: "system" as const,
+                  };
                 }
                 return { ...m, ...(text ? { content: text } : {}), pending: false };
               }),

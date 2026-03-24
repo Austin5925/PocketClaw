@@ -161,9 +161,7 @@ function ChannelCard({ channel, config, onSave, saving }: ChannelCardProps) {
               {field.type === "password" && (
                 <button
                   type="button"
-                  onClick={() =>
-                    setVisibility((prev) => ({ ...prev, [field.key]: !isVisible }))
-                  }
+                  onClick={() => setVisibility((prev) => ({ ...prev, [field.key]: !isVisible }))}
                   className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-0.5 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-600 dark:hover:text-gray-200"
                 >
                   {isVisible ? "隐藏" : "显示"}
@@ -247,11 +245,7 @@ function ProviderCard({
   const statusIndicator = (() => {
     if (validationStatus === "validating") {
       return (
-        <svg
-          className="h-5 w-5 animate-spin text-indigo-500"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
+        <svg className="h-5 w-5 animate-spin text-indigo-500" fill="none" viewBox="0 0 24 24">
           <circle
             className="opacity-25"
             cx="12"
@@ -269,16 +263,32 @@ function ProviderCard({
       );
     }
     if (validationStatus === "success") {
-      return <span className="text-lg text-green-500" title="验证通过">&#x2705;</span>;
+      return (
+        <span className="text-lg text-green-500" title="验证通过">
+          &#x2705;
+        </span>
+      );
     }
     if (validationStatus === "error") {
-      return <span className="text-lg text-red-500" title="验证失败">&#x274C;</span>;
+      return (
+        <span className="text-lg text-red-500" title="验证失败">
+          &#x274C;
+        </span>
+      );
     }
     // idle — show saved vs not-saved
     if (hasSavedKey) {
-      return <span className="text-lg text-green-500" title="已配置">&#x2705;</span>;
+      return (
+        <span className="text-lg text-green-500" title="已配置">
+          &#x2705;
+        </span>
+      );
     }
-    return <span className="text-lg text-yellow-500" title="未配置">&#x26A0;&#xFE0F;</span>;
+    return (
+      <span className="text-lg text-yellow-500" title="未配置">
+        &#x26A0;&#xFE0F;
+      </span>
+    );
   })();
 
   return (
@@ -292,9 +302,7 @@ function ProviderCard({
       {/* Header row */}
       <div className="mb-1 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h4 className="font-semibold text-gray-900 dark:text-gray-100">
-            {provider.name}
-          </h4>
+          <h4 className="font-semibold text-gray-900 dark:text-gray-100">{provider.name}</h4>
           {provider.recommended && (
             <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">
               推荐
@@ -318,9 +326,7 @@ function ProviderCard({
       </div>
 
       {/* Description */}
-      <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
-        {provider.description}
-      </p>
+      <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">{provider.description}</p>
 
       {/* API Key input row */}
       <div className="mb-2 flex items-center gap-2">
@@ -644,10 +650,7 @@ export function Settings() {
               <p>口袋龙虾 — 便携 AI 助手</p>
               <p>基于 OpenClaw (MIT) 构建</p>
               <div className="pt-2">
-                <a
-                  href="mailto:ausdina@proton.me"
-                  className="text-indigo-600 hover:underline"
-                >
+                <a href="mailto:ausdina@proton.me" className="text-indigo-600 hover:underline">
                   反馈建议
                 </a>
               </div>

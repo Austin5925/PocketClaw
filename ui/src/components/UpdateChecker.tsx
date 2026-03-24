@@ -14,15 +14,8 @@ const STATUS_LABELS: Record<UpdateStatus["status"], string> = {
 };
 
 export function UpdateChecker() {
-  const {
-    versionInfo,
-    checking,
-    error,
-    checkForUpdates,
-    triggerUpdate,
-    updateStatus,
-    updating,
-  } = useUpdate();
+  const { versionInfo, checking, error, checkForUpdates, triggerUpdate, updateStatus, updating } =
+    useUpdate();
   const [manualOpen, setManualOpen] = useState(false);
 
   useEffect(() => {
@@ -45,18 +38,12 @@ export function UpdateChecker() {
 
       {versionInfo && !checking && (
         <div className="space-y-2">
-          <p className="text-sm text-gray-700">
-            当前版本：v{versionInfo.current}
-          </p>
+          <p className="text-sm text-gray-700">当前版本：v{versionInfo.current}</p>
           {versionInfo.latest && (
-            <p className="text-sm text-gray-700">
-              最新版本：v{versionInfo.latest}
-            </p>
+            <p className="text-sm text-gray-700">最新版本：v{versionInfo.latest}</p>
           )}
           {versionInfo.updateAvailable ? (
-            <p className="text-sm font-medium text-indigo-600">
-              有新版本可用
-            </p>
+            <p className="text-sm font-medium text-indigo-600">有新版本可用</p>
           ) : (
             <p className="text-sm text-emerald-600">已是最新版本</p>
           )}
@@ -69,9 +56,7 @@ export function UpdateChecker() {
           <p className="text-sm text-gray-700">
             {STATUS_LABELS[updateStatus.status]}
             {updateStatus.version && (
-              <span className="ml-1 text-gray-500">
-                (v{updateStatus.version})
-              </span>
+              <span className="ml-1 text-gray-500">(v{updateStatus.version})</span>
             )}
           </p>
           {isInProgress && (

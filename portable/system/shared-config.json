@@ -1,6 +1,6 @@
 {
   "providers": [
-    { "id": "minimax",  "envVar": "MINIMAX_API_KEY",  "validateUrl": "https://api.minimaxi.com/anthropic/v1/messages", "validateMethod": "POST", "validateAuth": "x-api-key" },
+    { "id": "minimax",  "envVar": "MINIMAX_API_KEY",  "validateUrl": "https://api.minimaxi.com/v1/models", "validateMethod": "GET", "validateAuth": "bearer" },
     { "id": "deepseek", "envVar": "DEEPSEEK_API_KEY",  "validateUrl": "https://api.deepseek.com/models",                 "validateMethod": "GET",  "validateAuth": "bearer" },
     { "id": "moonshot", "envVar": "MOONSHOT_API_KEY",  "validateUrl": "https://api.moonshot.cn/v1/models",              "validateMethod": "GET",  "validateAuth": "bearer" },
     { "id": "kimi",     "openclawId": "moonshot", "envVar": "MOONSHOT_API_KEY",  "validateUrl": "https://api.moonshot.cn/v1/models",              "validateMethod": "GET",  "validateAuth": "bearer" },

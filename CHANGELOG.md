@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.2] - 2026-03-24
+
+### Changed
+
+- **默认界面改为高级模式 (18789)**: 移除简约模式作为默认前端，启动时浏览器直接打开 OpenClaw 原生 UI (port 18789)，省去自定义 React UI 带来的各类 bug。简约模式代码已注释保留。
+- **API key 安全修复**: `updateConfig` 保存后改为从服务器重新加载配置（返回脱敏 key），不再将真实 key 存储在本地 React state 中
+
+### Fixed
+
+- **MiniMax 验证按钮**: 将验证端点从 POST /anthropic/v1/messages 改为 GET /v1/models（bearer auth），修复 JWT key 格式下验证始终返回 ❌ 的问题
+
 ## [1.2.1] - 2026-03-24
 
 ### Fixed
