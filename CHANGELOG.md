@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.3] - 2026-03-24
+
+### Changed
+
+- **恢复 3210 为前端入口**: 回退 v1.2.2 的 18789 直连方案——OpenClaw npm 包不含预编译 Control UI 资源，18789 直接报错 "assets not found"。恢复 server.js 的静态文件服务 + WS 代理，launcher 重新打开 3210
+- **简约聊天替换为 PostSetup 落地页**: 引导完成后不再进入聊天界面，而是自动检测 18789 Control UI 是否可用并跳转；不可用时显示配置摘要 + 手动跳转按钮 + 设置入口
+- **4 步引导保留**: Onboarding 4 步流程（欢迎 → 选模型 → 频道 → 完成）完整保留，所有 API Key 和频道凭证通过 syncAuthProfiles + syncInternalConfig 写入 OpenClaw 内部配置
+
+### Fixed
+
+- **18789 不可用**: OpenClaw npm 包（3.13/3.22）均不含预编译 Control UI，直连 18789 必报错。改为先在 3210 完成引导，再尝试跳转
+
 ## [1.2.2] - 2026-03-24
 
 ### Changed

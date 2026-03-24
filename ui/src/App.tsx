@@ -1,7 +1,9 @@
 import { Component, type ReactNode } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Onboarding } from "./pages/Onboarding";
-import { Chat } from "./pages/Chat";
+// Chat page commented out — simple chat mode removed, users go to port 18789 after onboarding.
+// import { Chat } from "./pages/Chat";
+import { PostSetup } from "./pages/PostSetup";
 import { Settings } from "./pages/Settings";
 import { ToastContainer } from "./components/Toast";
 import { GatewayProvider } from "./hooks/GatewayContext";
@@ -62,7 +64,7 @@ export function App() {
             path="/*"
             element={
               <RequireConfig>
-                <Chat />
+                <PostSetup />
               </RequireConfig>
             }
           />
