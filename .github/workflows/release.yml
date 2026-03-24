@@ -103,12 +103,18 @@ jobs:
 
           cd /tmp/openclaw-src
           pnpm install --frozen-lockfile || pnpm install
-          node scripts/ui.js build || pnpm ui:build
+          node scripts/ui.js build || pnpm ui:build || true
 
-          # Copy built assets to portable/dist/control-ui/ (gateway discovers via cwd)
-          mkdir -p "${GITHUB_WORKSPACE}/portable/dist/control-ui"
-          cp -R dist/control-ui/* "${GITHUB_WORKSPACE}/portable/dist/control-ui/"
-          echo "Control UI built: $(ls ${GITHUB_WORKSPACE}/portable/dist/control-ui/ | wc -l) files"
+          # Verify build output exists before copying
+          if [ -f "dist/control-ui/index.html" ]; then
+            mkdir -p "${GITHUB_WORKSPACE}/portable/dist/control-ui"
+            cp -R dist/control-ui/* "${GITHUB_WORKSPACE}/portable/dist/control-ui/"
+            echo "Control UI built: $(ls "${GITHUB_WORKSPACE}/portable/dist/control-ui/" | wc -l) files"
+          else
+            echo "WARNING: Control UI build did not produce dist/control-ui/index.html"
+            echo "         Port 18789 will show 'assets not found'. This is non-fatal."
+            ls dist/ 2>/dev/null || echo "         dist/ directory does not exist"
+          fi
 
       - name: Pre-install ClawHub skills
         run: |
@@ -233,11 +239,17 @@ jobs:
 
           cd /tmp/openclaw-src
           pnpm install --frozen-lockfile || pnpm install
-          node scripts/ui.js build || pnpm ui:build
+          node scripts/ui.js build || pnpm ui:build || true
 
-          mkdir -p "${GITHUB_WORKSPACE}/portable/dist/control-ui"
-          cp -R dist/control-ui/* "${GITHUB_WORKSPACE}/portable/dist/control-ui/"
-          echo "Control UI built: $(ls ${GITHUB_WORKSPACE}/portable/dist/control-ui/ | wc -l) files"
+          if [ -f "dist/control-ui/index.html" ]; then
+            mkdir -p "${GITHUB_WORKSPACE}/portable/dist/control-ui"
+            cp -R dist/control-ui/* "${GITHUB_WORKSPACE}/portable/dist/control-ui/"
+            echo "Control UI built: $(ls "${GITHUB_WORKSPACE}/portable/dist/control-ui/" | wc -l) files"
+          else
+            echo "WARNING: Control UI build did not produce dist/control-ui/index.html"
+            echo "         Port 18789 will show 'assets not found'. This is non-fatal."
+            ls dist/ 2>/dev/null || echo "         dist/ directory does not exist"
+          fi
 
       - name: Pre-install ClawHub skills
         shell: bash

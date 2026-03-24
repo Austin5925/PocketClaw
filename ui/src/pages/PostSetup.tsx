@@ -27,7 +27,8 @@ export function PostSetup() {
     let cancelled = false;
     const check = async () => {
       try {
-        const res = await fetch(`${GATEWAY_URL}/health`, { cache: "no-store" });
+        // Use same-origin proxy to avoid CORS (direct fetch to :18789 is cross-origin)
+        const res = await fetch("/api/health", { cache: "no-store" });
         if (!cancelled) setGatewayStatus(res.ok ? "online" : "offline");
       } catch {
         if (!cancelled) setGatewayStatus("offline");

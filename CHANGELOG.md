@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.4] - 2026-03-24
+
+### Fixed
+
+- **PostSetup CORS 拦截**: 网关健康检查直接 fetch 18789 被浏览器 CORS 策略阻止，导致状态永远显示"未就绪"。改为通过 server.js 代理端点 `/api/health`
+- **Onboarding saving 状态泄露**: 完成引导后 `saving` 未重置为 false，在特定导航时序下可能导致按钮不可点击
+- **CI Control UI 构建健壮性**: 添加 `index.html` 存在性检查，build 失败不阻塞 release（降级为警告），避免假设 OpenClaw 源码结构导致整个 CI 挂掉
+
 ## [1.2.3] - 2026-03-24
 
 ### Changed

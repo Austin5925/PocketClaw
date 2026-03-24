@@ -96,6 +96,7 @@ export function Onboarding() {
 
       // Brief pause on step 4 then navigate
       await new Promise((r) => setTimeout(r, 1200));
+      setSaving(false);
       navigate("/");
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存配置失败");
