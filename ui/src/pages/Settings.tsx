@@ -388,10 +388,19 @@ function ProviderCard({
 /*  Settings page                                                     */
 /* ------------------------------------------------------------------ */
 
+type SettingsTab = "apikeys" | "channels" | "about";
+
+const TABS: { id: SettingsTab; label: string }[] = [
+  { id: "apikeys", label: "模型 API Key" },
+  { id: "channels", label: "频道接入" },
+  { id: "about", label: "关于与更新" },
+];
+
 export function Settings() {
   const { config, updateConfig, loading } = useConfig();
   const { sendRpc } = useGatewayConnection();
   const { theme, setTheme } = useTheme();
+  const [activeTab, setActiveTab] = useState<SettingsTab>("apikeys");
 
   // Per-provider local state: keyed by provider.id
   const [cardStates, setCardStates] = useState<Record<string, ProviderCardState>>({});
@@ -537,126 +546,158 @@ export function Settings() {
   const overseasProviders = MODEL_PROVIDERS.filter((p) => !isDomestic(p.id));
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900 md:p-8">
-      <div className="mx-auto max-w-2xl">
-        {/* Header */}
-        <div className="mb-6 flex items-center gap-3">
-          <Link
-            to="/"
-            className="rounded-lg p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-          >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"
-              />
-            </svg>
-          </Link>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">设置</h1>
-        </div>
-
-        <div className="space-y-6">
-          {/* ---- Domestic providers ---- */}
-          <section>
-            <h2 className="mb-3 text-lg font-semibold text-gray-800 dark:text-gray-200">
-              国内模型
-            </h2>
-            <div className="space-y-4">
-              {domesticProviders.map((provider) => (
-                <ProviderCard
-                  key={provider.id}
-                  provider={provider}
-                  isActive={activeConfigKey === provider.id}
-                  hasSavedKey={hasSavedKey(provider)}
-                  cardState={getCardState(provider.id)}
-                  onApiKeyChange={(key) => patchCard(provider.id, { apiKey: key })}
-                  onSave={() => void handleSave(provider)}
-                  onValidate={() => void handleValidate(provider)}
-                  onSetDefault={() => void handleSetDefault(provider)}
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900">
+      <div className="flex min-h-screen">
+        {/* ---- Left sidebar tabs ---- */}
+        <aside className="flex w-48 shrink-0 flex-col border-r border-gray-200 bg-white/80 backdrop-blur dark:border-gray-700 dark:bg-gray-800/80">
+          <div className="flex items-center gap-2 border-b border-gray-200 p-4 dark:border-gray-700">
+            <Link
+              to="/"
+              className="rounded-lg p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"
                 />
-              ))}
-            </div>
-          </section>
-
-          {/* ---- Overseas providers ---- */}
-          <section>
-            <h2 className="mb-3 text-lg font-semibold text-gray-800 dark:text-gray-200">
-              海外模型（需海外网络）
-            </h2>
-            <div className="space-y-4">
-              {overseasProviders.map((provider) => (
-                <ProviderCard
-                  key={provider.id}
-                  provider={provider}
-                  isActive={activeConfigKey === provider.id}
-                  hasSavedKey={hasSavedKey(provider)}
-                  cardState={getCardState(provider.id)}
-                  onApiKeyChange={(key) => patchCard(provider.id, { apiKey: key })}
-                  onSave={() => void handleSave(provider)}
-                  onValidate={() => void handleValidate(provider)}
-                  onSetDefault={() => void handleSetDefault(provider)}
-                />
-              ))}
-            </div>
-          </section>
-
-          {/* ---- Theme card ---- */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
-            <h3 className="mb-3 font-semibold text-gray-900 dark:text-gray-100">外观</h3>
-            <div className="flex gap-2">
-              {(["system", "light", "dark"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTheme(t)}
-                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    theme === t
-                      ? "bg-indigo-600 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  {t === "system" ? "跟随系统" : t === "light" ? "浅色" : "深色"}
-                </button>
-              ))}
-            </div>
+              </svg>
+            </Link>
+            <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">设置</h1>
           </div>
+          <nav className="flex flex-1 flex-col gap-1 p-2">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
+                    : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </aside>
 
-          {/* ---- Chat platform channel cards ---- */}
-          <section>
-            <h2 className="mb-3 text-lg font-semibold text-gray-800 dark:text-gray-200">
-              聊天平台
-            </h2>
-            <div className="space-y-4">
-              {CHANNEL_DEFS.map((ch) => (
-                <ChannelCard
-                  key={ch.id}
-                  channel={ch}
-                  config={config as Record<string, unknown> | null}
-                  onSave={(channelId, values) => void handleChannelSave(channelId, values)}
-                  saving={channelSaving}
-                />
-              ))}
-            </div>
-          </section>
+        {/* ---- Main content ---- */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-8">
+          <div className="mx-auto max-w-2xl space-y-6">
+            {/* ======== Tab: 模型 API Key ======== */}
+            {activeTab === "apikeys" && (
+              <>
+                <section>
+                  <h2 className="mb-3 text-lg font-semibold text-gray-800 dark:text-gray-200">
+                    国内模型
+                  </h2>
+                  <div className="space-y-4">
+                    {domesticProviders.map((provider) => (
+                      <ProviderCard
+                        key={provider.id}
+                        provider={provider}
+                        isActive={activeConfigKey === provider.id}
+                        hasSavedKey={hasSavedKey(provider)}
+                        cardState={getCardState(provider.id)}
+                        onApiKeyChange={(key) => patchCard(provider.id, { apiKey: key })}
+                        onSave={() => void handleSave(provider)}
+                        onValidate={() => void handleValidate(provider)}
+                        onSetDefault={() => void handleSetDefault(provider)}
+                      />
+                    ))}
+                  </div>
+                </section>
+                <section>
+                  <h2 className="mb-3 text-lg font-semibold text-gray-800 dark:text-gray-200">
+                    海外模型（需海外网络）
+                  </h2>
+                  <div className="space-y-4">
+                    {overseasProviders.map((provider) => (
+                      <ProviderCard
+                        key={provider.id}
+                        provider={provider}
+                        isActive={activeConfigKey === provider.id}
+                        hasSavedKey={hasSavedKey(provider)}
+                        cardState={getCardState(provider.id)}
+                        onApiKeyChange={(key) => patchCard(provider.id, { apiKey: key })}
+                        onSave={() => void handleSave(provider)}
+                        onValidate={() => void handleValidate(provider)}
+                        onSetDefault={() => void handleSetDefault(provider)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              </>
+            )}
 
-          {/* ---- Update checker ---- */}
-          <UpdateChecker />
+            {/* ======== Tab: 频道接入 ======== */}
+            {activeTab === "channels" && (
+              <section>
+                <h2 className="mb-3 text-lg font-semibold text-gray-800 dark:text-gray-200">
+                  聊天平台
+                </h2>
+                <div className="space-y-4">
+                  {CHANNEL_DEFS.map((ch) => (
+                    <ChannelCard
+                      key={ch.id}
+                      channel={ch}
+                      config={config as Record<string, unknown> | null}
+                      onSave={(channelId, values) => void handleChannelSave(channelId, values)}
+                      saving={channelSaving}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
 
-          {/* ---- About card ---- */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
-            <h3 className="mb-3 font-semibold text-gray-900 dark:text-gray-100">关于</h3>
-            <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-              <p>口袋龙虾 — 便携 AI 助手</p>
-              <p>基于 OpenClaw (MIT) 构建</p>
-              <div className="pt-2">
-                <a href="mailto:ausdina@proton.me" className="text-indigo-600 hover:underline">
-                  反馈建议
-                </a>
-              </div>
-            </div>
+            {/* ======== Tab: 关于与更新 ======== */}
+            {activeTab === "about" && (
+              <>
+                {/* Theme */}
+                <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+                  <h3 className="mb-3 font-semibold text-gray-900 dark:text-gray-100">外观</h3>
+                  <div className="flex gap-2">
+                    {(["system", "light", "dark"] as const).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setTheme(t)}
+                        className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                          theme === t
+                            ? "bg-indigo-600 text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
+                        }`}
+                      >
+                        {t === "system" ? "跟随系统" : t === "light" ? "浅色" : "深色"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Update */}
+                <UpdateChecker />
+
+                {/* About */}
+                <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+                  <h3 className="mb-3 font-semibold text-gray-900 dark:text-gray-100">关于</h3>
+                  <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                    <p>口袋龙虾 — 便携 AI 助手</p>
+                    <p>基于 OpenClaw (MIT) 构建</p>
+                    <div className="pt-2">
+                      <a
+                        href="mailto:ausdina@proton.me"
+                        className="text-indigo-600 hover:underline"
+                      >
+                        反馈建议
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );

@@ -9,15 +9,11 @@ const GATEWAY_URL = "http://localhost:18789";
 
 /**
  * Landing page shown after onboarding is complete.
- *
- * Attempts to redirect to the OpenClaw native Control UI (port 18789).
- * If the Control UI is not available (assets not built), displays a
- * status summary instead.
+ * Never redirects or replaces the current page — all external links open in a new tab.
  */
 export function PostSetup() {
   const { config } = useConfig();
-  const [checking, setChecking] = useState(true);
-  const [gatewayAvailable, setGatewayAvailable] = useState(false);
+  const [gatewayStatus, setGatewayStatus] = useState<"checking" | "online" | "offline">("checking");
 
   const currentModel = config?.agent?.model ?? "";
   const modelDisplay = currentModel.split("/").pop() ?? "未配置";
@@ -27,26 +23,14 @@ export function PostSetup() {
     configKey && (config?.[configKey] as Record<string, unknown> | undefined)?.apiKey,
   );
 
-  // Check if OpenClaw Control UI is reachable (not just /health — check if
-  // the root path returns HTML rather than the "assets not found" text).
   useEffect(() => {
     let cancelled = false;
     const check = async () => {
       try {
-        // /health is CORS-safe and always works when the gateway is running.
-        const healthRes = await fetch(`${GATEWAY_URL}/health`, {
-          cache: "no-store",
-        });
-        if (!cancelled && healthRes.ok) {
-          // Gateway is running. Try opening Control UI — if it shows the error
-          // page, the user can come back here. This is the best we can do
-          // without CORS access to the root path.
-          setGatewayAvailable(true);
-        }
+        const res = await fetch(`${GATEWAY_URL}/health`, { cache: "no-store" });
+        if (!cancelled) setGatewayStatus(res.ok ? "online" : "offline");
       } catch {
-        // Gateway not reachable
-      } finally {
-        if (!cancelled) setChecking(false);
+        if (!cancelled) setGatewayStatus("offline");
       }
     };
     void check();
@@ -55,49 +39,13 @@ export function PostSetup() {
     };
   }, []);
 
-  // Auto-redirect when gateway is available
-  useEffect(() => {
-    if (gatewayAvailable && !checking) {
-      window.location.href = GATEWAY_URL;
-    }
-  }, [gatewayAvailable, checking]);
-
-  if (checking) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <div className="text-center">
-          <Logo size={48} className="mx-auto mb-4" />
-          <p className="text-gray-500">正在连接 AI 引擎...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (gatewayAvailable) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <div className="text-center">
-          <Logo size={48} className="mx-auto mb-4" />
-          <p className="text-gray-500">正在跳转到 AI 界面...</p>
-          <a
-            href={GATEWAY_URL}
-            className="mt-4 inline-block text-sm text-indigo-600 hover:underline"
-          >
-            点击此处手动跳转
-          </a>
-        </div>
-      </div>
-    );
-  }
-
-  // Gateway not available or Control UI not built — show status page
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4 md:p-8">
       <div className="mx-auto max-w-lg">
         <div className="mb-8 text-center">
           <Logo size={56} className="mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900">口袋龙虾</h1>
-          <p className="mt-1 text-sm text-gray-500">设置已完成</p>
+          <p className="mt-1 text-sm text-gray-500">设置已完成，可以开始使用了</p>
         </div>
 
         {/* Status card */}
@@ -118,7 +66,21 @@ export function PostSetup() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-gray-600">AI 引擎</span>
-              <span className="font-medium text-amber-600">等待启动...</span>
+              <span
+                className={`font-medium ${
+                  gatewayStatus === "online"
+                    ? "text-green-600"
+                    : gatewayStatus === "checking"
+                      ? "text-gray-400"
+                      : "text-amber-600"
+                }`}
+              >
+                {gatewayStatus === "online"
+                  ? "已连接"
+                  : gatewayStatus === "checking"
+                    ? "检测中..."
+                    : "未就绪"}
+              </span>
             </div>
           </div>
         </div>
@@ -127,6 +89,8 @@ export function PostSetup() {
         <div className="space-y-3">
           <a
             href={GATEWAY_URL}
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex items-center justify-between rounded-2xl bg-indigo-600 p-5 text-white shadow-lg transition-all hover:bg-indigo-700 hover:shadow-xl"
           >
             <span className="text-lg font-semibold">打开 AI 界面</span>
