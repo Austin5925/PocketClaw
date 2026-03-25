@@ -158,6 +158,12 @@ function syncInternalConfig(config) {
     internal.agents.defaults.model = "minimax/MiniMax-M2.7";
   }
 
+  // Explicitly set workspace path so OpenClaw finds ClawHub skills.
+  // Without this, OpenClaw defaults to ~/.openclaw/workspace/ which
+  // doesn't contain the bundled skills we installed to $OPENCLAW_HOME/workspace/.
+  const workspacePath = path.join(DATA_DIR, ".openclaw", "workspace");
+  internal.agents.defaults.workspace = workspacePath;
+
   // Write provider configs for all providers that have entries in shared-config.json.
   // This ensures OpenClaw knows the baseUrl/api/models for each provider.
   if (!internal.models) internal.models = {};

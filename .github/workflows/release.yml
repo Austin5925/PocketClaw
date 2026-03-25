@@ -118,7 +118,7 @@ jobs:
 
       - name: Install channel plugins
         run: |
-          OPENCLAW_HOME="portable/data/.openclaw"
+          OPENCLAW_HOME="${GITHUB_WORKSPACE}/portable/data/.openclaw"
           mkdir -p "$OPENCLAW_HOME"
           cd "$OPENCLAW_HOME"
           npm init -y 2>/dev/null || true
@@ -130,13 +130,22 @@ jobs:
 
       - name: Pre-install ClawHub skills
         run: |
-          export OPENCLAW_HOME="portable/data/.openclaw"
+          # Absolute path required — clawhub doesn't resolve relative OPENCLAW_HOME
+          export OPENCLAW_HOME="${GITHUB_WORKSPACE}/portable/data/.openclaw"
           mkdir -p "$OPENCLAW_HOME/workspace/skills"
+          installed=0
+          failed=0
           while IFS= read -r slug; do
             [ -z "$slug" ] && continue
-            npx clawhub@latest install "$slug" || echo "WARN: Failed to install $slug"
+            if npx clawhub@latest install "$slug" 2>/dev/null; then
+              installed=$((installed + 1))
+            else
+              echo "WARN: Failed to install $slug"
+              failed=$((failed + 1))
+            fi
           done < portable/system/bundled-skills.txt
-          echo "Installed $(ls "$OPENCLAW_HOME/workspace/skills" | wc -l | tr -d ' ') skills"
+          actual=$(ls "$OPENCLAW_HOME/workspace/skills" 2>/dev/null | wc -l | tr -d ' ')
+          echo "Skills: ${installed} installed, ${failed} failed, ${actual} on disk"
 
       - name: Build Mac launchers
         working-directory: launcher
@@ -266,7 +275,7 @@ jobs:
       - name: Install channel plugins
         shell: bash
         run: |
-          OPENCLAW_HOME="portable/data/.openclaw"
+          OPENCLAW_HOME="${GITHUB_WORKSPACE}/portable/data/.openclaw"
           mkdir -p "$OPENCLAW_HOME"
           cd "$OPENCLAW_HOME"
           npm init -y 2>/dev/null || true
@@ -279,13 +288,21 @@ jobs:
       - name: Pre-install ClawHub skills
         shell: bash
         run: |
-          export OPENCLAW_HOME="portable/data/.openclaw"
+          export OPENCLAW_HOME="${GITHUB_WORKSPACE}/portable/data/.openclaw"
           mkdir -p "$OPENCLAW_HOME/workspace/skills"
+          installed=0
+          failed=0
           while IFS= read -r slug; do
             [ -z "$slug" ] && continue
-            npx clawhub@latest install "$slug" || echo "WARN: Failed to install $slug"
+            if npx clawhub@latest install "$slug" 2>/dev/null; then
+              installed=$((installed + 1))
+            else
+              echo "WARN: Failed to install $slug"
+              failed=$((failed + 1))
+            fi
           done < portable/system/bundled-skills.txt
-          echo "Installed $(ls "$OPENCLAW_HOME/workspace/skills" | wc -l | tr -d ' ') skills"
+          actual=$(ls "$OPENCLAW_HOME/workspace/skills" 2>/dev/null | wc -l | tr -d ' ')
+          echo "Skills: ${installed} installed, ${failed} failed, ${actual} on disk"
 
       - name: Build Windows launcher
         shell: bash

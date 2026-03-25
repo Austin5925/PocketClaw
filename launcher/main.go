@@ -361,6 +361,23 @@ func syncConfigToOpenClaw() {
 		}
 	}
 
+	// Explicitly set workspace path so OpenClaw finds ClawHub skills.
+	// Without this, OpenClaw defaults to ~/.openclaw/workspace/ which
+	// doesn't contain the bundled skills we installed to $OPENCLAW_HOME/workspace/.
+	{
+		agents, _ := internalConfig["agents"].(map[string]interface{})
+		if agents == nil {
+			agents = make(map[string]interface{})
+		}
+		defaults, _ := agents["defaults"].(map[string]interface{})
+		if defaults == nil {
+			defaults = make(map[string]interface{})
+		}
+		defaults["workspace"] = filepath.Join(baseDir, "data", ".openclaw", "workspace")
+		agents["defaults"] = defaults
+		internalConfig["agents"] = agents
+	}
+
 	// Sync ALL provider configs from shared-config.json (single source of truth).
 	// Must include ALL required fields (baseUrl, api, models) to pass Zod strict validation.
 	models, _ := internalConfig["models"].(map[string]interface{})
