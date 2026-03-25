@@ -406,12 +406,14 @@ func syncConfigToOpenClaw() {
 	internalConfig["models"] = models
 
 	// Pass channels config to OpenClaw ONLY if channel plugins are installed.
-	// CI installs @openclaw/feishu and @tencent-connect/openclaw-qqbot since v1.2.5.
-	pluginDir := filepath.Join(baseDir, "app", "core", "node_modules")
-	_, hasFeishu := os.Stat(filepath.Join(pluginDir, "@openclaw", "feishu"))
-	_, hasLark := os.Stat(filepath.Join(pluginDir, "@larksuite", "openclaw-lark"))
-	_, hasQQ := os.Stat(filepath.Join(pluginDir, "@tencent-connect", "openclaw-qqbot"))
-	if (hasFeishu == nil || hasLark == nil || hasQQ == nil) {
+	corePlugins := filepath.Join(baseDir, "app", "core", "node_modules")
+	homePlugins := filepath.Join(baseDir, "data", ".openclaw", "node_modules")
+	_, errFeishuHome := os.Stat(filepath.Join(homePlugins, "@openclaw", "feishu"))
+	_, errFeishuCore := os.Stat(filepath.Join(corePlugins, "@openclaw", "feishu"))
+	_, errQQHome := os.Stat(filepath.Join(homePlugins, "@tencent-connect", "openclaw-qqbot"))
+	_, errQQCore := os.Stat(filepath.Join(corePlugins, "@tencent-connect", "openclaw-qqbot"))
+	hasPlugins := errFeishuHome == nil || errFeishuCore == nil || errQQHome == nil || errQQCore == nil
+	if hasPlugins {
 		if channels, ok := ourConfig["channels"].(map[string]interface{}); ok {
 			internalConfig["channels"] = channels
 		}

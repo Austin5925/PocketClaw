@@ -227,6 +227,14 @@ export function Onboarding() {
                   data-lpignore="true"
                   className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
                 />
+                <a
+                  href="https://open.feishu.cn"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-block text-xs text-indigo-600 hover:underline"
+                >
+                  查看飞书机器人配置教程 →
+                </a>
               </ChannelCard>
 
               {/* QQ */}
@@ -253,6 +261,14 @@ export function Onboarding() {
                   data-lpignore="true"
                   className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
                 />
+                <a
+                  href="https://q.qq.com/qqbot/openclaw"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-block text-xs text-indigo-600 hover:underline"
+                >
+                  查看 QQ 机器人配置教程 →
+                </a>
               </ChannelCard>
 
               {/* WeChat */}

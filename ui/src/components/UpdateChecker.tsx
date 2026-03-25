@@ -41,6 +41,11 @@ export function UpdateChecker() {
           <p className="text-sm text-gray-700 dark:text-gray-300">
             口袋龙虾：v{versionInfo.current}
           </p>
+          {versionInfo.openclawVersion && (
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              OpenClaw 内核：v{versionInfo.openclawVersion}
+            </p>
+          )}
           {versionInfo.latest ? (
             <>
               <p className="text-sm text-gray-700 dark:text-gray-300">

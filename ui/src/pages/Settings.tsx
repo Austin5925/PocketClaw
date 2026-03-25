@@ -50,7 +50,7 @@ const CHANNEL_DEFS: ChannelDef[] = [
       { key: "appId", label: "App ID", type: "text" },
       { key: "clientSecret", label: "Client Secret", type: "password" },
     ],
-    tutorialUrl: "https://q.qq.com",
+    tutorialUrl: "https://q.qq.com/qqbot/openclaw",
   },
   {
     id: "wechat",

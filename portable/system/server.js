@@ -11,8 +11,6 @@ const SCRIPT_DIR = __dirname;
 const BASE_DIR = path.resolve(SCRIPT_DIR, "..");
 const UI_DIR = path.join(BASE_DIR, "app", "ui", "dist");
 const DATA_DIR = path.join(BASE_DIR, "data");
-const CORE_DIR = path.join(BASE_DIR, "app", "core");
-
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
   ".js": "application/javascript; charset=utf-8",
@@ -34,7 +32,7 @@ const SECURITY_HEADERS = {
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "no-referrer",
   "Content-Security-Policy":
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws://localhost:* http://localhost:*; font-src 'self'",
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws://localhost:* http://localhost:* https://api.github.com; font-src 'self'",
 };
 
 const SHARED_CONFIG = JSON.parse(
@@ -151,10 +149,13 @@ function syncInternalConfig(config) {
   internal.gateway.controlUi.dangerouslyDisableDeviceAuth = true;
 
   const model = config.agent?.model;
+  if (!internal.agents) internal.agents = {};
+  if (!internal.agents.defaults) internal.agents.defaults = {};
   if (model) {
-    if (!internal.agents) internal.agents = {};
-    if (!internal.agents.defaults) internal.agents.defaults = {};
     internal.agents.defaults.model = model;
+  } else if (!internal.agents.defaults.model) {
+    // Default to MiniMax for fresh installs (China-focused, no VPN needed)
+    internal.agents.defaults.model = "minimax/MiniMax-M2.7";
   }
 
   // Write provider configs for all providers that have entries in shared-config.json.
@@ -179,12 +180,12 @@ function syncInternalConfig(config) {
   }
 
   // Pass channels config to OpenClaw ONLY if channel plugins are installed.
-  // On OpenClaw 3.13 without plugins, this field causes a gateway crash.
-  // CI installs @openclaw/feishu and @tencent-connect/openclaw-qqbot since v1.2.5.
-  const pluginDir = path.join(CORE_DIR, "node_modules");
-  const hasFeishu = fs.existsSync(path.join(pluginDir, "@openclaw", "feishu")) ||
-                    fs.existsSync(path.join(pluginDir, "@larksuite", "openclaw-lark"));
-  const hasQQ = fs.existsSync(path.join(pluginDir, "@tencent-connect", "openclaw-qqbot"));
+  const corePlugins = path.join(BASE_DIR, "app", "core", "node_modules");
+  const homePlugins = path.join(DATA_DIR, ".openclaw", "node_modules");
+  const hasFeishu = fs.existsSync(path.join(homePlugins, "@openclaw", "feishu")) ||
+                    fs.existsSync(path.join(corePlugins, "@openclaw", "feishu"));
+  const hasQQ = fs.existsSync(path.join(homePlugins, "@tencent-connect", "openclaw-qqbot")) ||
+                fs.existsSync(path.join(corePlugins, "@tencent-connect", "openclaw-qqbot"));
   if ((hasFeishu || hasQQ) && config.channels && typeof config.channels === "object") {
     internal.channels = config.channels;
   } else {
@@ -275,6 +276,16 @@ function handleApiVersion(res) {
     jsonResponse(res, 200, { version });
   } catch {
     jsonResponse(res, 500, { error: "Version file not found" });
+  }
+}
+
+function handleApiOpenclawVersion(res) {
+  const pkgPath = path.join(BASE_DIR, "app", "core", "node_modules", "openclaw", "package.json");
+  try {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+    jsonResponse(res, 200, { version: pkg.version });
+  } catch {
+    jsonResponse(res, 500, { error: "OpenClaw version not found" });
   }
 }
 
@@ -610,6 +621,7 @@ const server = http.createServer((req, res) => {
   if (pathname === "/api/config") return handleApiConfig(req, res);
   if (pathname === "/api/validate-key") return handleApiValidateKey(req, res);
   if (pathname === "/api/version") return handleApiVersion(res);
+  if (pathname === "/api/openclaw-version") return handleApiOpenclawVersion(res);
   if (pathname === "/api/health") return handleApiHealth(res);
   if (pathname === "/api/update" && req.method === "POST")
     return handleApiUpdate(req, res);

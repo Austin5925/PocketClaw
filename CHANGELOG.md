@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.7] - 2026-03-25
+
+### Fixed
+
+- **检查更新"无法连接 GitHub"(P0)**: CSP `connect-src` 未包含 `https://api.github.com`，浏览器直接拦截请求。已添加到允许列表
+- **QQ 频道连不上 (P0)**: 插件安装在错误路径（`app/core/node_modules/`），OpenClaw 在 `$OPENCLAW_HOME/node_modules/` 查找。CI 已修正安装路径
+- **默认模型错误设为 Claude Opus (P0)**: 未完成引导时 `syncInternalConfig` 不写默认模型，OpenClaw 回退到编译默认值 `anthropic/claude-opus-4-6`（需翻墙）。现在默认 `minimax/MiniMax-M2.7`
+- **HEARTBEAT 消息泄露到聊天**: OpenClaw 心跳机制的 "Read HEARTBEAT.md" 和 "HEARTBEAT_OK" 显示为用户/助手气泡。已在 useGateway.ts 添加过滤
+- **QQ 教程入口 URL**: Settings.tsx 中 QQ `tutorialUrl` 从 `q.qq.com` 改为 `q.qq.com/qqbot/openclaw`
+
+### Added
+
+- **OpenClaw 内核版本显示**: 新增 `/api/openclaw-version` 端点，UpdateChecker 同时显示口袋龙虾版本和 OpenClaw 内核版本
+- **引导第三步教程链接**: 飞书和 QQ 配置卡片下方增加平台教程入口
+
 ## [1.2.6] - 2026-03-25
 
 ### Fixed

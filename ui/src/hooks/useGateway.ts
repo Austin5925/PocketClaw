@@ -58,6 +58,19 @@ function extractText(msg: Record<string, unknown>): string {
   return "";
 }
 
+/** Check if a message is an internal system message that should be hidden */
+function isInternalMessage(text: string): boolean {
+  if (!text) return false;
+  const t = text.trim();
+  return (
+    t.startsWith("Read HEARTBEAT") ||
+    t === "HEARTBEAT_OK" ||
+    t.startsWith("[heartbeat]") ||
+    t.startsWith("[system]") ||
+    /^Read\s+[\w.-]+\.md\b/.test(t)
+  );
+}
+
 export function useGateway(): UseGatewayReturn {
   const { connected, connectionError, mainSessionKey, sendRpc, onMessage } = useGatewayConnection();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -163,6 +176,7 @@ export function useGateway(): UseGatewayReturn {
         if (state === "delta" && msg) {
           const text = extractText(msg);
           if (!runId) return;
+          if (isInternalMessage(text)) return;
 
           if (!runIdToMsgId.current.has(runId)) {
             // New run — create assistant bubble
@@ -225,6 +239,10 @@ export function useGateway(): UseGatewayReturn {
             clearTimeout(sendTimeoutRef.current);
             sendTimeoutRef.current = null;
             const text = msg ? extractText(msg) : "";
+            if (isInternalMessage(text)) {
+              setPending(false);
+              return;
+            }
             if (text) {
               const newId = makeId();
               setMessages((prev) => [
@@ -295,8 +313,14 @@ export function useGateway(): UseGatewayReturn {
         if (payload?.messages && Array.isArray(payload.messages)) {
           const history = (payload.messages as Array<Record<string, unknown>>)
             .filter((m) => {
-              if (m.role === "user") return true;
-              if (m.role === "assistant") return Boolean(extractText(m));
+              if (m.role === "user") {
+                const text = extractText(m);
+                return !isInternalMessage(text);
+              }
+              if (m.role === "assistant") {
+                const text = extractText(m);
+                return Boolean(text) && !isInternalMessage(text);
+              }
               return false;
             })
             .map((m) => {

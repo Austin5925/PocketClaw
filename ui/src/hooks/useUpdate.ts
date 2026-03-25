@@ -103,6 +103,17 @@ export function useUpdate(): UseUpdateReturn {
     try {
       const { version: current } = await getVersion();
 
+      let openclawVersion: string | undefined;
+      try {
+        const ocRes = await fetch("/api/openclaw-version");
+        if (ocRes.ok) {
+          const ocData = (await ocRes.json()) as { version: string };
+          openclawVersion = ocData.version;
+        }
+      } catch {
+        // OpenClaw version not available
+      }
+
       let latest: string | undefined;
       let fetchError: string | null = null;
       try {
@@ -125,6 +136,7 @@ export function useUpdate(): UseUpdateReturn {
         current,
         latest,
         updateAvailable: latest ? compareSemver(latest, current) > 0 : false,
+        openclawVersion,
       });
 
       if (!latest && fetchError) {

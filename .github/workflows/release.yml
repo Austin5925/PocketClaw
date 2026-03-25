@@ -118,13 +118,14 @@ jobs:
 
       - name: Install channel plugins
         run: |
-          cd portable/app/core
+          OPENCLAW_HOME="portable/data/.openclaw"
+          mkdir -p "$OPENCLAW_HOME"
+          cd "$OPENCLAW_HOME"
+          npm init -y 2>/dev/null || true
           npm install @openclaw/feishu@latest @tencent-connect/openclaw-qqbot@latest 2>&1 || \
-          npm install @larksuite/openclaw-lark@latest @tencent-connect/openclaw-qqbot@latest 2>&1 || \
-          echo "WARN: Channel plugin installation failed — channels will not be available"
+            echo "WARN: Channel plugin installation failed — channels will not be available"
           echo "Installed channel plugins:"
           ls node_modules/@openclaw/ 2>/dev/null || true
-          ls node_modules/@larksuite/ 2>/dev/null || true
           ls node_modules/@tencent-connect/ 2>/dev/null || true
 
       - name: Pre-install ClawHub skills
@@ -265,13 +266,14 @@ jobs:
       - name: Install channel plugins
         shell: bash
         run: |
-          cd portable/app/core
+          OPENCLAW_HOME="portable/data/.openclaw"
+          mkdir -p "$OPENCLAW_HOME"
+          cd "$OPENCLAW_HOME"
+          npm init -y 2>/dev/null || true
           npm install @openclaw/feishu@latest @tencent-connect/openclaw-qqbot@latest 2>&1 || \
-          npm install @larksuite/openclaw-lark@latest @tencent-connect/openclaw-qqbot@latest 2>&1 || \
-          echo "WARN: Channel plugin installation failed — channels will not be available"
+            echo "WARN: Channel plugin installation failed — channels will not be available"
           echo "Installed channel plugins:"
           ls node_modules/@openclaw/ 2>/dev/null || true
-          ls node_modules/@larksuite/ 2>/dev/null || true
           ls node_modules/@tencent-connect/ 2>/dev/null || true
 
       - name: Pre-install ClawHub skills

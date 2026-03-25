@@ -42,6 +42,7 @@ export interface VersionInfo {
   current: string;
   latest?: string;
   updateAvailable: boolean;
+  openclawVersion?: string;
 }
 
 export interface HealthResponse {

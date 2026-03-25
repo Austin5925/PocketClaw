@@ -15,6 +15,10 @@ describe("useUpdate", () => {
       } as Response)
       .mockResolvedValueOnce({
         ok: true,
+        json: () => Promise.resolve({ version: "3.22.0" }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
         json: () => Promise.resolve({ tag_name: "v1.0.0" }),
       } as Response);
 
@@ -32,6 +36,7 @@ describe("useUpdate", () => {
       current: "1.0.0",
       latest: "1.0.0",
       updateAvailable: false,
+      openclawVersion: "3.22.0",
     });
   });
 
@@ -40,6 +45,10 @@ describe("useUpdate", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ version: "1.0.0" }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ version: "3.22.0" }),
       } as Response)
       .mockResolvedValueOnce({
         ok: true,
@@ -66,6 +75,10 @@ describe("useUpdate", () => {
         ok: true,
         json: () => Promise.resolve({ version: "1.0.0" }),
       } as Response)
+      .mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({}),
+      } as Response)
       .mockRejectedValueOnce(new Error("Network error"));
 
     const { result } = renderHook(() => useUpdate());
@@ -87,6 +100,10 @@ describe("useUpdate", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ version: "1.9.0" }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ version: "3.22.0" }),
       } as Response)
       .mockResolvedValueOnce({
         ok: true,
