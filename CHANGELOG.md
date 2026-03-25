@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.10] - 2026-03-26
+
+### Fixed
+
+- **QQ 插件 "unknown channel id" (P0)**: OpenClaw 只扫描 `extensions/` 目录发现插件，不扫描 `node_modules/`。npm install 安装的插件对 OpenClaw 不可见。修复：在 syncInternalConfig 写入 `plugins.load.paths` 显式注册每个 npm 安装的插件路径，让 OpenClaw 的 `discoverFromPath` 机制正确加载
+
 ## [1.2.9] - 2026-03-25
 
 ### Fixed

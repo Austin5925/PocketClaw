@@ -422,15 +422,38 @@ func syncConfigToOpenClaw() {
 	models["providers"] = modProviders
 	internalConfig["models"] = models
 
-	// Pass channels config to OpenClaw ONLY if channel plugins are installed.
+	// Register community plugins installed via npm so OpenClaw discovers them.
+	// OpenClaw only scans extensions/ dirs — npm packages need explicit plugins.load.paths.
 	corePlugins := filepath.Join(baseDir, "app", "core", "node_modules")
 	homePlugins := filepath.Join(baseDir, "data", ".openclaw", "node_modules")
-	_, errFeishuHome := os.Stat(filepath.Join(homePlugins, "@openclaw", "feishu"))
-	_, errFeishuCore := os.Stat(filepath.Join(corePlugins, "@openclaw", "feishu"))
-	_, errQQHome := os.Stat(filepath.Join(homePlugins, "@tencent-connect", "openclaw-qqbot"))
-	_, errQQCore := os.Stat(filepath.Join(corePlugins, "@tencent-connect", "openclaw-qqbot"))
-	hasPlugins := errFeishuHome == nil || errFeishuCore == nil || errQQHome == nil || errQQCore == nil
-	if hasPlugins {
+	pluginCandidates := []string{
+		filepath.Join(homePlugins, "@tencent-connect", "openclaw-qqbot"),
+		filepath.Join(corePlugins, "@tencent-connect", "openclaw-qqbot"),
+		filepath.Join(homePlugins, "@openclaw", "feishu"),
+		filepath.Join(corePlugins, "@openclaw", "feishu"),
+	}
+	var pluginPaths []interface{}
+	for _, p := range pluginCandidates {
+		if _, err := os.Stat(p); err == nil {
+			pluginPaths = append(pluginPaths, p)
+		}
+	}
+	if len(pluginPaths) > 0 {
+		plugins, _ := internalConfig["plugins"].(map[string]interface{})
+		if plugins == nil {
+			plugins = make(map[string]interface{})
+		}
+		load, _ := plugins["load"].(map[string]interface{})
+		if load == nil {
+			load = make(map[string]interface{})
+		}
+		load["paths"] = pluginPaths
+		plugins["load"] = load
+		internalConfig["plugins"] = plugins
+	}
+
+	// Pass channels config if any channel plugins are found
+	if len(pluginPaths) > 0 {
 		if channels, ok := ourConfig["channels"].(map[string]interface{}); ok {
 			internalConfig["channels"] = channels
 		}

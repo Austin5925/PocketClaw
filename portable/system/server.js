@@ -185,14 +185,32 @@ function syncInternalConfig(config) {
     };
   }
 
-  // Pass channels config to OpenClaw ONLY if channel plugins are installed.
+  // Register community plugins installed via npm so OpenClaw discovers them.
+  // OpenClaw only scans extensions/ dirs by default — npm-installed packages
+  // in node_modules/ are invisible without explicit plugins.load.paths.
   const corePlugins = path.join(BASE_DIR, "app", "core", "node_modules");
   const homePlugins = path.join(DATA_DIR, ".openclaw", "node_modules");
-  const hasFeishu = fs.existsSync(path.join(homePlugins, "@openclaw", "feishu")) ||
-                    fs.existsSync(path.join(corePlugins, "@openclaw", "feishu"));
-  const hasQQ = fs.existsSync(path.join(homePlugins, "@tencent-connect", "openclaw-qqbot")) ||
-                fs.existsSync(path.join(corePlugins, "@tencent-connect", "openclaw-qqbot"));
-  if ((hasFeishu || hasQQ) && config.channels && typeof config.channels === "object") {
+  const pluginPaths = [];
+  const qqCandidates = [
+    path.join(homePlugins, "@tencent-connect", "openclaw-qqbot"),
+    path.join(corePlugins, "@tencent-connect", "openclaw-qqbot"),
+  ];
+  const feishuCandidates = [
+    path.join(homePlugins, "@openclaw", "feishu"),
+    path.join(corePlugins, "@openclaw", "feishu"),
+  ];
+  for (const p of [...qqCandidates, ...feishuCandidates]) {
+    if (fs.existsSync(p)) pluginPaths.push(p);
+  }
+  if (pluginPaths.length > 0) {
+    if (!internal.plugins) internal.plugins = {};
+    if (!internal.plugins.load) internal.plugins.load = {};
+    internal.plugins.load.paths = pluginPaths;
+  }
+
+  // Pass channels config if any channel plugins are found
+  const hasPlugins = pluginPaths.length > 0;
+  if (hasPlugins && config.channels && typeof config.channels === "object") {
     internal.channels = config.channels;
   } else {
     delete internal.channels;
