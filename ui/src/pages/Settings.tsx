@@ -524,6 +524,11 @@ export function Settings() {
       setChannelSaving(true);
       try {
         const channelData: Record<string, unknown> = { enabled: true, ...values };
+        // Feishu defaults to dmPolicy="pairing" which requires CLI approval.
+        // Override to "open" for portable USB users who can't run CLI commands.
+        if (channelId === "feishu") {
+          channelData.dmPolicy = channelData.dmPolicy ?? "open";
+        }
         await updateConfig({
           channels: { [channelId]: channelData },
         } as Partial<OpenClawConfig>);
