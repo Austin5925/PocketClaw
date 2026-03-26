@@ -452,11 +452,26 @@ func syncConfigToOpenClaw() {
 		internalConfig["plugins"] = plugins
 	}
 
-	// Pass channels config if any channel plugins are found
+	// Pass channels config if any channel plugins are found.
+	// Auto-enable WeChat if plugin exists but not yet configured.
 	if len(pluginPaths) > 0 {
-		if channels, ok := ourConfig["channels"].(map[string]interface{}); ok {
-			internalConfig["channels"] = channels
+		channels, _ := ourConfig["channels"].(map[string]interface{})
+		if channels == nil {
+			channels = make(map[string]interface{})
 		}
+		hasWeixinPlugin := false
+		for _, p := range pluginPaths {
+			if s, ok := p.(string); ok && strings.Contains(s, "openclaw-weixin") {
+				hasWeixinPlugin = true
+				break
+			}
+		}
+		if hasWeixinPlugin {
+			if _, exists := channels["openclaw-weixin"]; !exists {
+				channels["openclaw-weixin"] = map[string]interface{}{"enabled": true}
+			}
+		}
+		internalConfig["channels"] = channels
 	} else {
 		delete(internalConfig, "channels")
 	}

@@ -230,10 +230,19 @@ function syncInternalConfig(config, { updateModel = false } = {}) {
     internal.plugins.load.paths = pluginPaths;
   }
 
-  // Pass channels config if any channel plugins are found
+  // Pass channels config if any channel plugins are found.
+  // Auto-enable WeChat if the plugin is installed (QR login handled in 18789 Control UI).
   const hasPlugins = pluginPaths.length > 0;
-  if (hasPlugins && config.channels && typeof config.channels === "object") {
-    internal.channels = config.channels;
+  if (hasPlugins) {
+    const channels = (config.channels && typeof config.channels === "object")
+      ? { ...config.channels }
+      : {};
+    // Default-enable openclaw-weixin if the plugin exists but user hasn't configured it yet
+    const hasWeixinPlugin = pluginPaths.some((p) => String(p).includes("openclaw-weixin"));
+    if (hasWeixinPlugin && !channels["openclaw-weixin"]) {
+      channels["openclaw-weixin"] = { enabled: true };
+    }
+    internal.channels = channels;
   } else {
     delete internal.channels;
   }

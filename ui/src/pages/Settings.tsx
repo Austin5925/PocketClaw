@@ -183,7 +183,13 @@ function ChannelCard({ channel, config, onSave, saving }: ChannelCardProps) {
           disabled={(!hasInput && channel.fields.length > 0) || saving}
           className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-40"
         >
-          {saving ? "..." : channel.fields.length === 0 ? "启用" : "保存"}
+          {saving
+            ? "..."
+            : channel.fields.length === 0
+              ? isConfigured
+                ? "已启用"
+                : "启用"
+              : "保存"}
         </button>
         {channel.tutorialUrl && (
           <a
