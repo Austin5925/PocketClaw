@@ -10,7 +10,7 @@ import { MODEL_PROVIDERS, getProviderConfigKey } from "../utils/config";
 interface ChannelConfig {
   feishu?: { enabled: boolean; appId: string; appSecret: string };
   qqbot?: { enabled: boolean; appId: string; clientSecret: string };
-  wechat?: { enabled: boolean };
+  "openclaw-weixin"?: { enabled: boolean };
 }
 
 const TOTAL_STEPS = 4;
@@ -105,7 +105,7 @@ export function Onboarding() {
   };
 
   const toggleChannel = (
-    channel: "feishu" | "qqbot" | "wechat",
+    channel: "feishu" | "qqbot" | "openclaw-weixin",
     field: string,
     value: string | boolean,
   ) => {
@@ -276,14 +276,18 @@ export function Onboarding() {
                 name="微信"
                 icon={<WeChatIcon className="h-6 w-6 shrink-0 text-green-500" />}
                 badge="实验性功能"
-                expanded={expandedChannel === "wechat"}
-                onToggle={() => setExpandedChannel(expandedChannel === "wechat" ? null : "wechat")}
+                expanded={expandedChannel === "openclaw-weixin"}
+                onToggle={() =>
+                  setExpandedChannel(
+                    expandedChannel === "openclaw-weixin" ? null : "openclaw-weixin",
+                  )
+                }
               >
                 <label className="flex items-center gap-2 text-sm text-gray-700">
                   <input
                     type="checkbox"
-                    checked={channels.wechat?.enabled ?? false}
-                    onChange={(e) => toggleChannel("wechat", "enabled", e.target.checked)}
+                    checked={channels["openclaw-weixin"]?.enabled ?? false}
+                    onChange={(e) => toggleChannel("openclaw-weixin", "enabled", e.target.checked)}
                     className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                   />
                   启用微信 ClawBot（需在 OpenClaw 控制台扫码配对）
@@ -383,14 +387,14 @@ function ChannelCard({
 
 /** Helper to produce sensible defaults for new channel entries */
 function getChannelDefaults(
-  channel: "feishu" | "qqbot" | "wechat",
+  channel: "feishu" | "qqbot" | "openclaw-weixin",
 ): NonNullable<ChannelConfig[typeof channel]> {
   switch (channel) {
     case "feishu":
       return { enabled: true, appId: "", appSecret: "" };
     case "qqbot":
       return { enabled: true, appId: "", clientSecret: "" };
-    case "wechat":
+    case "openclaw-weixin":
       return { enabled: false };
   }
 }
