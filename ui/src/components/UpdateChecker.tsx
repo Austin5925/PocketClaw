@@ -13,40 +13,14 @@ const STATUS_LABELS: Record<UpdateStatus["status"], string> = {
   error: "更新失败",
 };
 
-interface OpenClawCheck {
-  current: string;
-  latest: string | null;
-  updateAvailable: boolean;
-  error?: string;
-}
-
 export function UpdateChecker() {
   const { versionInfo, checking, error, checkForUpdates, triggerUpdate, updateStatus, updating } =
     useUpdate();
   const [manualOpen, setManualOpen] = useState(false);
 
-  // OpenClaw version check (separate from PocketClaw)
-  const [ocCheck, setOcCheck] = useState<OpenClawCheck | null>(null);
-  const [ocChecking, setOcChecking] = useState(false);
-
   useEffect(() => {
     void checkForUpdates();
-    void checkOpenClaw();
   }, [checkForUpdates]);
-
-  const checkOpenClaw = async () => {
-    setOcChecking(true);
-    try {
-      const res = await fetch("/api/openclaw-check");
-      if (res.ok) {
-        setOcCheck((await res.json()) as OpenClawCheck);
-      }
-    } catch {
-      // silent
-    } finally {
-      setOcChecking(false);
-    }
-  };
 
   const isInProgress =
     updating &&
@@ -78,29 +52,15 @@ export function UpdateChecker() {
             ) : null}
           </div>
 
-          {/* OpenClaw version */}
+          {/* OpenClaw version info */}
           <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-700/50">
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-              OpenClaw 内核{" "}
-              {ocCheck
-                ? `v${ocCheck.current}`
-                : versionInfo.openclawVersion
-                  ? `v${versionInfo.openclawVersion}`
-                  : ""}
-              {ocChecking && <span className="ml-1 text-gray-400">检查中...</span>}
+              OpenClaw 内核 {versionInfo.openclawVersion ? `v${versionInfo.openclawVersion}` : ""}
             </p>
-            {ocCheck?.latest && (
-              <p className="mt-1 text-xs text-gray-500">最新: v{ocCheck.latest}</p>
-            )}
-            {ocCheck?.updateAvailable ? (
-              <p className="mt-1 text-xs font-medium text-amber-600">
-                有新版本可用（将随口袋龙虾下次更新一起升级）
-              </p>
-            ) : ocCheck?.latest ? (
-              <p className="mt-1 text-xs text-emerald-600">已是最新</p>
-            ) : ocCheck?.error ? (
-              <p className="mt-1 text-xs text-gray-400">{ocCheck.error}</p>
-            ) : null}
+            <p className="mt-1 text-xs text-gray-400">
+              内核版本随口袋龙虾更新自动升级，无需手动操作。18789 控制台中的 &quot;Update Now&quot;
+              按钮不可用。
+            </p>
           </div>
         </div>
       )}
@@ -138,12 +98,11 @@ export function UpdateChecker() {
         <button
           onClick={() => {
             void checkForUpdates();
-            void checkOpenClaw();
           }}
-          disabled={checking || ocChecking || isInProgress}
+          disabled={checking || isInProgress}
           className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 disabled:opacity-50 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
         >
-          {checking || ocChecking ? "检查中..." : "检查更新"}
+          {checking ? "检查中..." : "检查更新"}
         </button>
 
         {versionInfo?.updateAvailable && !isInProgress && updateStatus.status !== "complete" && (

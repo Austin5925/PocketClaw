@@ -138,7 +138,8 @@ export function PostSetup() {
                 </div>
               )}
               <p className="mt-1 text-xs text-gray-400">
-                切换模型后 AI 引擎会短暂重启（3-5 秒），请稍候
+                切换模型后 AI 引擎会短暂重启（3-5 秒）。如已打开 AI
+                界面（18789），请刷新页面（F5）查看新模型。
               </p>
             </div>
             <div className="flex items-center justify-between">

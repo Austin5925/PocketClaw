@@ -80,7 +80,7 @@ export const MODEL_PROVIDERS: ModelProvider[] = [
     id: "qwen",
     name: "通义千问",
     description: "阿里出品，免费额度大",
-    models: ["modelstudio/qwen3.5-plus", "modelstudio/qwen3-max", "modelstudio/qwen-plus"],
+    models: ["modelstudio/qwen3.5-plus", "modelstudio/qwen3-max", "modelstudio/qwen-turbo"],
     apiKeyUrl: "https://dashscope.console.aliyun.com/apiKey",
   },
   {
@@ -92,8 +92,8 @@ export const MODEL_PROVIDERS: ModelProvider[] = [
   },
   {
     id: "doubao",
-    name: "豆包 (字节跳动)",
-    description: "字节出品，Seed 2.0 旗舰（API Key 以 sk- 开头）",
+    name: "豆包 (火山引擎)",
+    description: "火山引擎方舟平台，Seed 2.0 旗舰",
     models: [
       "volcengine/doubao-seed-2-0-pro-260215",
       "volcengine/doubao-seed-2-0-lite-260215",

@@ -45,7 +45,7 @@
     "models": [
       { "id": "qwen3.5-plus", "name": "Qwen 3.5 Plus" },
       { "id": "qwen3-max",    "name": "Qwen 3 Max" },
-      { "id": "qwen-plus",    "name": "Qwen Plus" }
+      { "id": "qwen-turbo",   "name": "Qwen Turbo" }
     ]
   },
   "zhipu": {

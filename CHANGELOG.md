@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.21] - 2026-03-27
+
+### Fixed
+
+- **通义千问 qwen-plus 连不上**: 移除 qwen-plus 模型，替换为 qwen-turbo（更稳定）
+- **微信频道启用后不显示**: 确认 channelsChanged 检测 + gateway restart 逻辑正确性
+
+### Changed
+
+- **豆包重命名**: "豆包（字节跳动）" → "豆包（火山引擎）"，移除 sk- 前缀提示
+- **更新界面简化**: 移除 OpenClaw 独立更新检查，改为显示"内核随口袋龙虾自动升级"提示
+- **模型切换提示**: 增加"切换后请在 18789 刷新页面（F5）"说明
+- **18789 Update Now 说明**: 告知用户该按钮不可用，更新通过口袋龙虾进行
+
 ## [1.2.19] - 2026-03-26
 
 ### Fixed
