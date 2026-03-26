@@ -29,7 +29,7 @@
 
 1. **欢迎** — 确认开始
 2. **选择模型 + API Key** — 推荐 MiniMax（国内免翻墙），[如何获取 API Key？](docs/api-keys.md)
-3. **连接聊天平台**（可选）— 飞书、QQ 机器人，[详细指南](docs/channels.md)
+3. **连接聊天平台**（可选）— 飞书、QQ、微信 ClawBot，[详细指南](docs/channels.md)
 4. **完成** — 自动跳转到 AI 界面
 
 设置完成后，以后每次插上 U 盘双击启动即可直接使用。
@@ -40,7 +40,7 @@
 - **双击即用** — 一个文件启动一切，开箱即用
 - **小白友好** — 简洁中文界面，4 步引导式配置
 - **多模型支持** — MiniMax、DeepSeek、Kimi、通义千问、智谱、Claude、GPT、Gemini 等 9 家
-- **聊天平台集成** — 飞书机器人、QQ 机器人（WebSocket，无需公网 IP）
+- **聊天平台集成** — 飞书、QQ、微信 ClawBot（WebSocket/长连接，无需公网 IP）
 - **跨平台** — macOS (Apple Silicon / Intel) + Windows 10/11
 - **一键更新** — 界面内检查更新，一键升级
 - **完全开源** — MIT 许可证，代码透明
@@ -67,7 +67,7 @@
 ## 遇到问题？
 
 - [API Key 获取指南](docs/api-keys.md)
-- [飞书 / QQ 机器人配置](docs/channels.md)
+- [飞书 / QQ / 微信配置](docs/channels.md)
 - [常见问题](docs/FAQ.md)
 - [反馈建议](mailto:ausdina@proton.me)
 
