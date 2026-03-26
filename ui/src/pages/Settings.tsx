@@ -53,7 +53,7 @@ const CHANNEL_DEFS: ChannelDef[] = [
     tutorialUrl: "https://q.qq.com",
   },
   {
-    id: "wechat",
+    id: "openclaw-weixin",
     name: "微信",
     icon: "\uD83D\uDCAC",
     description: "微信 ClawBot 官方插件（扫码登录，无需公网）",
