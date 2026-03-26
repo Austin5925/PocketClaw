@@ -203,19 +203,22 @@ function syncInternalConfig(config, { updateModel = false } = {}) {
     };
   }
 
-  // Register community plugins installed via npm so OpenClaw discovers them.
-  // Plugins MUST be in app/core/node_modules/ (same tree as openclaw) so they
-  // can resolve require("openclaw/plugin-sdk"). NEVER use $OPENCLAW_HOME/node_modules/
-  // — plugins there can't find openclaw/plugin-sdk and cause load failures.
+  // Register community plugins ONLY if user has configured the corresponding channel.
+  // Unconditionally loading plugins (especially openclaw-weixin) can crash/hang the
+  // gateway at startup even when unconfigured — unlike bundled plugins which skip gracefully.
   const corePlugins = path.join(BASE_DIR, "app", "core", "node_modules");
   const pluginPaths = [];
-  const pluginCandidates = [
-    path.join(corePlugins, "@tencent-connect", "openclaw-qqbot"),
-    path.join(corePlugins, "@tencent-weixin", "openclaw-weixin"),
-    // Feishu is BUNDLED in OpenClaw 3.22+ — do NOT add here
-  ];
-  for (const p of pluginCandidates) {
-    if (fs.existsSync(p)) pluginPaths.push(p);
+  const userChannels = (config.channels && typeof config.channels === "object") ? config.channels : {};
+  // Map: channel config key → plugin npm path
+  const pluginMap = {
+    qqbot: path.join(corePlugins, "@tencent-connect", "openclaw-qqbot"),
+    "openclaw-weixin": path.join(corePlugins, "@tencent-weixin", "openclaw-weixin"),
+    // Feishu is BUNDLED in OpenClaw 3.22+ — never register here
+  };
+  for (const [channelId, pluginPath] of Object.entries(pluginMap)) {
+    if (userChannels[channelId] && fs.existsSync(pluginPath)) {
+      pluginPaths.push(pluginPath);
+    }
   }
 
   // Clean up stale plugins from $OPENCLAW_HOME/node_modules/ left by previous versions.

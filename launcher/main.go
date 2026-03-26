@@ -422,20 +422,23 @@ func syncConfigToOpenClaw() {
 	models["providers"] = modProviders
 	internalConfig["models"] = models
 
-	// Register community plugins — ONLY from app/core/node_modules/ (same tree as openclaw).
-	// $OPENCLAW_HOME/node_modules/ has broken plugin-sdk resolution (postmortem v1.2.x).
+	// Register community plugins ONLY if user has configured the corresponding channel.
+	// Unconditionally loading plugins (especially openclaw-weixin) crashes/hangs the gateway.
 	corePlugins := filepath.Join(baseDir, "app", "core", "node_modules")
-	pluginCandidates := []string{
-		filepath.Join(corePlugins, "@tencent-connect", "openclaw-qqbot"),
-		filepath.Join(corePlugins, "@tencent-weixin", "openclaw-weixin"),
-	}
 	// Clean up stale plugins from $OPENCLAW_HOME/node_modules/ left by v1.2.7-v1.2.12
 	staleDir := filepath.Join(baseDir, "data", ".openclaw", "node_modules")
 	os.RemoveAll(staleDir)
+	userChannels, _ := ourConfig["channels"].(map[string]interface{})
+	pluginMap := map[string]string{
+		"qqbot":           filepath.Join(corePlugins, "@tencent-connect", "openclaw-qqbot"),
+		"openclaw-weixin": filepath.Join(corePlugins, "@tencent-weixin", "openclaw-weixin"),
+	}
 	var pluginPaths []interface{}
-	for _, p := range pluginCandidates {
-		if _, err := os.Stat(p); err == nil {
-			pluginPaths = append(pluginPaths, p)
+	for channelId, pluginPath := range pluginMap {
+		if userChannels[channelId] != nil {
+			if _, err := os.Stat(pluginPath); err == nil {
+				pluginPaths = append(pluginPaths, pluginPath)
+			}
 		}
 	}
 	if len(pluginPaths) > 0 {
