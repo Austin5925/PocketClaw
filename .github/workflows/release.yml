@@ -391,33 +391,25 @@ jobs:
         run: |
           VERSION="${{ needs.check-version.outputs.version }}"
           BUCKET="pocketclawaus"
-          REGION="oss-cn-shanghai"
-          OSS_BASE="https://${BUCKET}.${REGION}.aliyuncs.com"
+          ENDPOINT="oss-cn-shanghai.aliyuncs.com"
 
-          # Install ossutil
-          curl -fsSL "https://gosspublic.alicdn.com/ossutil/install.sh" | bash 2>/dev/null || \
-            pip3 install ossutil2 2>/dev/null
+          # Install ossutil2 via pip (most reliable on ubuntu)
+          pip3 install --quiet ossutil2 || pip3 install ossutil2
+          echo "ossutil2 installed: $(ossutil2 version 2>/dev/null || echo 'NOT FOUND')"
 
-          # Configure ossutil
-          ossutil config \
-            --access-key-id "${OSS_KEY_ID}" \
-            --access-key-secret "${OSS_KEY_SECRET}" \
-            --endpoint "${REGION}.aliyuncs.com" 2>/dev/null || \
+          # Configure
           ossutil2 config \
             --access-key-id "${OSS_KEY_ID}" \
             --access-key-secret "${OSS_KEY_SECRET}" \
-            --endpoint "${REGION}.aliyuncs.com" 2>/dev/null || true
+            --endpoint "${ENDPOINT}"
+          echo "ossutil2 configured for ${ENDPOINT}"
 
-          # Upload release files to oss://bucket/v{version}/
+          # Upload each file (no 2>/dev/null — let errors be visible)
           for file in PocketClaw-*.zip SHA256SUMS.txt; do
-            echo "Uploading $file to OSS..."
-            ossutil cp "$file" "oss://${BUCKET}/v${VERSION}/${file}" --force 2>/dev/null || \
-            ossutil2 cp "$file" "oss://${BUCKET}/v${VERSION}/${file}" --force 2>/dev/null || \
-            echo "WARN: Failed to upload $file to OSS"
+            echo "Uploading $file ($(du -h "$file" | cut -f1)) to oss://${BUCKET}/v${VERSION}/${file}..."
+            ossutil2 cp "$file" "oss://${BUCKET}/v${VERSION}/${file}" --force
           done
 
-          echo "OSS upload complete. URLs:"
-          echo "  ${OSS_BASE}/v${VERSION}/PocketClaw-v${VERSION}-mac.zip"
-          echo "  ${OSS_BASE}/v${VERSION}/PocketClaw-v${VERSION}-windows.zip"
-          echo "  ${OSS_BASE}/v${VERSION}/PocketClaw-v${VERSION}-update.zip"
+          echo "OSS upload complete:"
+          ossutil2 ls "oss://${BUCKET}/v${VERSION}/" || echo "Failed to list OSS contents"
 
