@@ -83,7 +83,13 @@ export function Onboarding() {
       };
 
       if (!skipChannels) {
-        configUpdates.channels = channels;
+        // Override feishu dmPolicy to "open" — default "pairing" requires CLI approval
+        // which is impossible for portable USB users.
+        const channelsCopy = { ...channels } as Record<string, Record<string, unknown>>;
+        if (channelsCopy.feishu) {
+          channelsCopy.feishu = { ...channelsCopy.feishu, dmPolicy: "open" };
+        }
+        configUpdates.channels = channelsCopy;
       }
 
       await updateConfig(configUpdates);
