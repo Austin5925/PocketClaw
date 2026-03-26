@@ -383,34 +383,71 @@ jobs:
             --generate-notes \
             PocketClaw-*.zip SHA256SUMS.txt
 
-      - name: Create Gitee release
+      - name: Upload to Aliyun OSS (China mirror)
+        continue-on-error: true
+        env:
+          OSS_KEY_ID: ${{ secrets.ALIYUN_OSS_KEY_ID }}
+          OSS_KEY_SECRET: ${{ secrets.ALIYUN_OSS_KEY_SECRET }}
+        run: |
+          VERSION="${{ needs.check-version.outputs.version }}"
+          BUCKET="pocketclawaus"
+          REGION="oss-cn-shanghai"
+          OSS_BASE="https://${BUCKET}.${REGION}.aliyuncs.com"
+
+          # Install ossutil
+          curl -fsSL "https://gosspublic.alicdn.com/ossutil/install.sh" | bash 2>/dev/null || \
+            pip3 install ossutil2 2>/dev/null
+
+          # Configure ossutil
+          ossutil config \
+            --access-key-id "${OSS_KEY_ID}" \
+            --access-key-secret "${OSS_KEY_SECRET}" \
+            --endpoint "${REGION}.aliyuncs.com" 2>/dev/null || \
+          ossutil2 config \
+            --access-key-id "${OSS_KEY_ID}" \
+            --access-key-secret "${OSS_KEY_SECRET}" \
+            --endpoint "${REGION}.aliyuncs.com" 2>/dev/null || true
+
+          # Upload release files to oss://bucket/v{version}/
+          for file in PocketClaw-*.zip SHA256SUMS.txt; do
+            echo "Uploading $file to OSS..."
+            ossutil cp "$file" "oss://${BUCKET}/v${VERSION}/${file}" --force 2>/dev/null || \
+            ossutil2 cp "$file" "oss://${BUCKET}/v${VERSION}/${file}" --force 2>/dev/null || \
+            echo "WARN: Failed to upload $file to OSS"
+          done
+
+          echo "OSS upload complete. URLs:"
+          echo "  ${OSS_BASE}/v${VERSION}/PocketClaw-v${VERSION}-mac.zip"
+          echo "  ${OSS_BASE}/v${VERSION}/PocketClaw-v${VERSION}-windows.zip"
+          echo "  ${OSS_BASE}/v${VERSION}/PocketClaw-v${VERSION}-update.zip"
+
+      - name: Create Gitee release (with OSS download links)
         continue-on-error: true
         env:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
         run: |
           VERSION="${{ needs.check-version.outputs.version }}"
+          OSS_BASE="https://pocketclawaus.oss-cn-shanghai.aliyuncs.com"
 
           # Push tags to Gitee
           git remote add gitee https://oauth2:${GITEE_TOKEN}@gitee.com/Austin5925/PocketClaw.git || true
           git push gitee "v${VERSION}" --force 2>/dev/null || true
 
-          # Create Gitee release
+          # Create Gitee release with OSS download links in body
+          BODY="## 下载\n\n"
+          BODY="${BODY}- [Windows 版](${OSS_BASE}/v${VERSION}/PocketClaw-v${VERSION}-windows.zip)（阿里云 OSS 国内加速）\n"
+          BODY="${BODY}- [Mac 版](${OSS_BASE}/v${VERSION}/PocketClaw-v${VERSION}-mac.zip)（阿里云 OSS 国内加速）\n"
+          BODY="${BODY}- [更新包](${OSS_BASE}/v${VERSION}/PocketClaw-v${VERSION}-update.zip)（阿里云 OSS 国内加速）\n"
+          BODY="${BODY}- [GitHub 下载](https://github.com/Austin5925/PocketClaw/releases/tag/v${VERSION})（国际）"
+
           RELEASE_ID=$(curl -s -X POST \
             "https://gitee.com/api/v5/repos/Austin5925/PocketClaw/releases" \
             -H "Content-Type: application/json" \
-            -d "{\"access_token\":\"${GITEE_TOKEN}\",\"tag_name\":\"v${VERSION}\",\"name\":\"PocketClaw v${VERSION}\",\"body\":\"Release v${VERSION}\"}" \
+            -d "{\"access_token\":\"${GITEE_TOKEN}\",\"tag_name\":\"v${VERSION}\",\"name\":\"PocketClaw v${VERSION}\",\"body\":\"${BODY}\"}" \
             | jq -r '.id // empty')
 
           if [ -n "$RELEASE_ID" ]; then
-            echo "Gitee release created: $RELEASE_ID"
-            # Upload assets
-            for file in PocketClaw-*.zip SHA256SUMS.txt; do
-              echo "Uploading $file to Gitee..."
-              curl -s -X POST \
-                "https://gitee.com/api/v5/repos/Austin5925/PocketClaw/releases/${RELEASE_ID}/attach_files" \
-                -F "access_token=${GITEE_TOKEN}" \
-                -F "file=@${file}" || echo "WARN: Failed to upload $file"
-            done
+            echo "Gitee release created: $RELEASE_ID (with OSS download links)"
           else
             echo "WARN: Failed to create Gitee release"
           fi

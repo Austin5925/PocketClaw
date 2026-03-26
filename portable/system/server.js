@@ -32,7 +32,7 @@ const SECURITY_HEADERS = {
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "no-referrer",
   "Content-Security-Policy":
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws://localhost:* http://localhost:* https://api.github.com https://gitee.com; font-src 'self'",
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws://localhost:* http://localhost:* https://api.github.com https://gitee.com https://pocketclawaus.oss-cn-shanghai.aliyuncs.com; font-src 'self'",
 };
 
 const SHARED_CONFIG = JSON.parse(
@@ -398,20 +398,23 @@ let updateState = { status: "idle", progress: 0, error: null, version: null };
 function fetchLatestRelease() {
   const https = require("https");
 
+  const OSS_BASE = "https://pocketclawaus.oss-cn-shanghai.aliyuncs.com";
+
   const sources = [
     {
       name: "Gitee",
       url: "https://gitee.com/api/v5/repos/Austin5925/PocketClaw/releases/latest",
       headers: { "User-Agent": "PocketClaw" },
       parseVersion: (data) => data.tag_name?.replace(/^v/, ""),
-      buildDownloadUrl: (ver) => `https://gitee.com/Austin5925/PocketClaw/releases/download/v${ver}/PocketClaw-v${ver}-update.zip`,
+      // Download from Aliyun OSS (fast in China), not from Gitee attachments (100MB limit)
+      buildDownloadUrl: (ver) => `${OSS_BASE}/v${ver}/PocketClaw-v${ver}-update.zip`,
     },
     {
       name: "GitHub",
       url: "https://api.github.com/repos/Austin5925/PocketClaw/releases/latest",
       headers: { "User-Agent": "PocketClaw", Accept: "application/vnd.github.v3+json" },
       parseVersion: (data) => data.tag_name?.replace(/^v/, ""),
-      buildDownloadUrl: (ver) => `https://github.com/Austin5925/PocketClaw/releases/download/v${ver}/PocketClaw-v${ver}-update.zip`,
+      buildDownloadUrl: (ver) => `${OSS_BASE}/v${ver}/PocketClaw-v${ver}-update.zip`,
     },
   ];
 
@@ -419,7 +422,7 @@ function fetchLatestRelease() {
     let idx = 0;
     const tryNext = () => {
       if (idx >= sources.length) {
-        reject(new Error("无法获取最新版本（Gitee 和 GitHub 均不可达）"));
+        reject(new Error("无法获取最新版本（Gitee 和 GitHub 均不可达），请检查网络"));
         return;
       }
       const src = sources[idx++];
