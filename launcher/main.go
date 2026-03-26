@@ -426,11 +426,11 @@ func syncConfigToOpenClaw() {
 	// OpenClaw only scans extensions/ dirs — npm packages need explicit plugins.load.paths.
 	corePlugins := filepath.Join(baseDir, "app", "core", "node_modules")
 	homePlugins := filepath.Join(baseDir, "data", ".openclaw", "node_modules")
+	// Feishu is BUNDLED in OpenClaw 3.22+ (dist/extensions/feishu/) — do NOT add
+	// npm-installed @openclaw/feishu here (causes ERR_PACKAGE_PATH_NOT_EXPORTED).
 	pluginCandidates := []string{
 		filepath.Join(homePlugins, "@tencent-connect", "openclaw-qqbot"),
 		filepath.Join(corePlugins, "@tencent-connect", "openclaw-qqbot"),
-		filepath.Join(homePlugins, "@openclaw", "feishu"),
-		filepath.Join(corePlugins, "@openclaw", "feishu"),
 		filepath.Join(homePlugins, "@tencent-weixin", "openclaw-weixin"),
 		filepath.Join(corePlugins, "@tencent-weixin", "openclaw-weixin"),
 	}

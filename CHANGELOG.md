@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.12] - 2026-03-26
+
+### Fixed
+
+- **飞书插件加载失败 (P0)**: CI npm install `@openclaw/feishu` 时引入了一个独立的 `openclaw` 依赖包，与 `app/core/node_modules/openclaw` 冲突，导致 `ERR_PACKAGE_PATH_NOT_EXPORTED: Package subpath './plugin-sdk/compat'`。修复：飞书是 OpenClaw 3.22+ 内置插件（在 `dist/extensions/feishu/`），不需要也不应该通过 npm 额外安装。CI 移除 `@openclaw/feishu` 安装 + 清理残留，plugins.load.paths 不再注册飞书路径
+
 ## [1.2.11] - 2026-03-26
 
 ### Fixed

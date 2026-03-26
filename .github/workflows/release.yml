@@ -118,14 +118,18 @@ jobs:
 
       - name: Install channel plugins
         run: |
+          # Feishu is BUNDLED in OpenClaw 3.22+ (dist/extensions/feishu/) — do NOT npm install it.
+          # npm install @openclaw/feishu creates a conflicting openclaw dependency that breaks
+          # plugin-sdk/compat imports. Only install community (non-bundled) plugins here.
           OPENCLAW_HOME="${GITHUB_WORKSPACE}/portable/data/.openclaw"
           mkdir -p "$OPENCLAW_HOME"
           cd "$OPENCLAW_HOME"
           npm init -y 2>/dev/null || true
-          npm install @openclaw/feishu@latest @tencent-connect/openclaw-qqbot@latest @tencent-weixin/openclaw-weixin@latest 2>&1 || \
+          npm install @tencent-connect/openclaw-qqbot@latest @tencent-weixin/openclaw-weixin@latest 2>&1 || \
             echo "WARN: Channel plugin installation failed — channels will not be available"
+          # Remove any stale @openclaw/feishu to prevent ERR_PACKAGE_PATH_NOT_EXPORTED
+          rm -rf node_modules/@openclaw/feishu 2>/dev/null || true
           echo "Installed channel plugins:"
-          ls node_modules/@openclaw/ 2>/dev/null || true
           ls node_modules/@tencent-connect/ 2>/dev/null || true
           ls node_modules/@tencent-weixin/ 2>/dev/null || true
 
@@ -279,14 +283,15 @@ jobs:
       - name: Install channel plugins
         shell: bash
         run: |
+          # Feishu is BUNDLED in OpenClaw 3.22+ — do NOT npm install it.
           OPENCLAW_HOME="${GITHUB_WORKSPACE}/portable/data/.openclaw"
           mkdir -p "$OPENCLAW_HOME"
           cd "$OPENCLAW_HOME"
           npm init -y 2>/dev/null || true
-          npm install @openclaw/feishu@latest @tencent-connect/openclaw-qqbot@latest @tencent-weixin/openclaw-weixin@latest 2>&1 || \
+          npm install @tencent-connect/openclaw-qqbot@latest @tencent-weixin/openclaw-weixin@latest 2>&1 || \
             echo "WARN: Channel plugin installation failed — channels will not be available"
+          rm -rf node_modules/@openclaw/feishu 2>/dev/null || true
           echo "Installed channel plugins:"
-          ls node_modules/@openclaw/ 2>/dev/null || true
           ls node_modules/@tencent-connect/ 2>/dev/null || true
           ls node_modules/@tencent-weixin/ 2>/dev/null || true
 

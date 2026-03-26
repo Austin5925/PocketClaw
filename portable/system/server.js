@@ -204,19 +204,18 @@ function syncInternalConfig(config) {
   const corePlugins = path.join(BASE_DIR, "app", "core", "node_modules");
   const homePlugins = path.join(DATA_DIR, ".openclaw", "node_modules");
   const pluginPaths = [];
+  // Feishu is BUNDLED in OpenClaw 3.22+ (dist/extensions/feishu/) — do NOT add
+  // npm-installed @openclaw/feishu here, it causes ERR_PACKAGE_PATH_NOT_EXPORTED
+  // due to conflicting openclaw dependency in node_modules.
   const qqCandidates = [
     path.join(homePlugins, "@tencent-connect", "openclaw-qqbot"),
     path.join(corePlugins, "@tencent-connect", "openclaw-qqbot"),
-  ];
-  const feishuCandidates = [
-    path.join(homePlugins, "@openclaw", "feishu"),
-    path.join(corePlugins, "@openclaw", "feishu"),
   ];
   const wechatCandidates = [
     path.join(homePlugins, "@tencent-weixin", "openclaw-weixin"),
     path.join(corePlugins, "@tencent-weixin", "openclaw-weixin"),
   ];
-  for (const p of [...qqCandidates, ...feishuCandidates, ...wechatCandidates]) {
+  for (const p of [...qqCandidates, ...wechatCandidates]) {
     if (fs.existsSync(p)) pluginPaths.push(p);
   }
   if (pluginPaths.length > 0) {
