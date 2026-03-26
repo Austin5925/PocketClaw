@@ -256,6 +256,37 @@ function syncInternalConfig(config, { updateModel = false } = {}) {
   );
 }
 
+/** Module-level reference to the gateway child process (set in supervisor mode). */
+let gatewayChildProcess = null;
+
+/**
+ * Notify the OpenClaw gateway to do a graceful restart.
+ * On Unix: SIGUSR1. On Windows: write a .restart sentinel file that
+ * OpenClaw's health-monitor detects.
+ *
+ * This is the ONLY mechanism that causes the 18789 Control UI to refresh
+ * config. File-based chokidar hot-reload updates runtime but does NOT
+ * push changes to connected WebSocket clients.
+ */
+function notifyGatewayRestart() {
+  if (!gatewayChildProcess || gatewayChildProcess.killed) return;
+
+  if (process.platform !== "win32") {
+    // Unix: SIGUSR1 triggers graceful restart
+    try { gatewayChildProcess.kill("SIGUSR1"); } catch { /* ok */ }
+    return;
+  }
+
+  // Windows: no SIGUSR1. Kill and re-spawn the gateway process.
+  // The supervisor will detect the exit and the health check loop will
+  // wait for the new process to start. This is heavy but reliable.
+  // Note: we set a flag so the exit handler doesn't terminate the whole process.
+  gatewayRestarting = true;
+  try { gatewayChildProcess.kill(); } catch { /* ok */ }
+}
+
+let gatewayRestarting = false;
+
 /** Mask all apiKey fields in a config object — returns last 4 chars only. */
 function maskApiKeys(obj) {
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return obj;
@@ -316,6 +347,12 @@ function handleApiConfig(req, res) {
         // selected in the 18789 Control UI.
         const modelChanged = parsed.agent?.model && parsed.agent.model !== existing.agent?.model;
         syncInternalConfig(parsed, { updateModel: modelChanged });
+
+        // If model changed, restart gateway so 18789 Control UI picks up new model.
+        // chokidar hot-reload updates runtime but does NOT push to WebSocket clients.
+        if (modelChanged) {
+          notifyGatewayRestart();
+        }
 
         jsonResponse(res, 200, { success: true });
       } catch {
@@ -842,7 +879,7 @@ if (process.argv.includes("--supervisor")) {
 
   // 3. Start gateway
   log("正在启动 AI 引擎...");
-  const gatewayProcess = spawn(
+  let gatewayProcess = spawn(
     process.execPath,
     [openclawEntry, "gateway", "--port", String(GATEWAY_PORT), "--allow-unconfigured"],
     { cwd: BASE_DIR, stdio: ["ignore", "pipe", "pipe"] },
@@ -850,6 +887,7 @@ if (process.argv.includes("--supervisor")) {
   // Write gateway output to log file for diagnostics
   const logPath = path.join(DATA_DIR, "pocketclaw.log");
   const logStream = fs.createWriteStream(logPath, { flags: "a", mode: 0o600 });
+  gatewayChildProcess = gatewayProcess;
   gatewayProcess.stdout.on("data", (chunk) => logStream.write(chunk));
   gatewayProcess.stderr.on("data", (chunk) => logStream.write(chunk));
 
@@ -862,6 +900,22 @@ if (process.argv.includes("--supervisor")) {
   process.on("SIGTERM", () => { cleanup(); process.exit(0); });
 
   gatewayProcess.on("exit", (code) => {
+    if (gatewayRestarting) {
+      // Windows model-switch restart: re-spawn the gateway
+      gatewayRestarting = false;
+      log("[gateway] 模型已切换，正在重启 AI 引擎...");
+      const newGw = spawn(
+        process.execPath,
+        [openclawEntry, "gateway", "--port", String(GATEWAY_PORT), "--allow-unconfigured"],
+        { cwd: BASE_DIR, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, OPENCLAW_HOME: path.join(DATA_DIR, ".openclaw") } },
+      );
+      newGw.stdout.on("data", (chunk) => logStream.write(chunk));
+      newGw.stderr.on("data", (chunk) => logStream.write(chunk));
+      newGw.on("exit", gatewayProcess.listeners("exit")[0]); // re-attach this handler
+      gatewayProcess = newGw;
+      gatewayChildProcess = newGw;
+      return;
+    }
     if (code !== null && code !== 0) {
       log(`[错误] AI 引擎异常退出 (code ${code})`);
       process.exit(1);
