@@ -129,7 +129,7 @@ const CONFIG_KEY_FOR_PROVIDER = Object.fromEntries(
  * as belt-and-suspenders. Provider entries must be COMPLETE (baseUrl, api, models)
  * to pass Zod strict validation.
  */
-function syncInternalConfig(config) {
+function syncInternalConfig(config, { updateModel = false } = {}) {
   const internalDir = path.join(DATA_DIR, ".openclaw", ".openclaw");
   const internalPath = path.join(internalDir, "openclaw.json");
 
@@ -148,13 +148,18 @@ function syncInternalConfig(config) {
   internal.gateway.controlUi.allowInsecureAuth = true;
   internal.gateway.controlUi.dangerouslyDisableDeviceAuth = true;
 
-  const model = config.agent?.model;
+  // Model sync: only write agents.defaults.model when explicitly requested.
+  // Previously this ran on EVERY PUT, overwriting whatever model the user
+  // selected in the 18789 Control UI with whatever was in our user config.
   if (!internal.agents) internal.agents = {};
   if (!internal.agents.defaults) internal.agents.defaults = {};
-  if (model) {
-    internal.agents.defaults.model = model;
-  } else if (!internal.agents.defaults.model) {
-    // Default to MiniMax for fresh installs (China-focused, no VPN needed)
+  if (updateModel) {
+    const model = config.agent?.model;
+    if (model) {
+      internal.agents.defaults.model = model;
+    }
+  }
+  if (!internal.agents.defaults.model) {
     internal.agents.defaults.model = "minimax/MiniMax-M2.7";
   }
 
@@ -199,24 +204,25 @@ function syncInternalConfig(config) {
   }
 
   // Register community plugins installed via npm so OpenClaw discovers them.
-  // OpenClaw only scans extensions/ dirs by default — npm-installed packages
-  // in node_modules/ are invisible without explicit plugins.load.paths.
+  // Plugins MUST be in app/core/node_modules/ (same tree as openclaw) so they
+  // can resolve require("openclaw/plugin-sdk"). NEVER use $OPENCLAW_HOME/node_modules/
+  // — plugins there can't find openclaw/plugin-sdk and cause load failures.
   const corePlugins = path.join(BASE_DIR, "app", "core", "node_modules");
-  const homePlugins = path.join(DATA_DIR, ".openclaw", "node_modules");
   const pluginPaths = [];
-  // Feishu is BUNDLED in OpenClaw 3.22+ (dist/extensions/feishu/) — do NOT add
-  // npm-installed @openclaw/feishu here, it causes ERR_PACKAGE_PATH_NOT_EXPORTED
-  // due to conflicting openclaw dependency in node_modules.
-  const qqCandidates = [
-    path.join(homePlugins, "@tencent-connect", "openclaw-qqbot"),
+  const pluginCandidates = [
     path.join(corePlugins, "@tencent-connect", "openclaw-qqbot"),
-  ];
-  const wechatCandidates = [
-    path.join(homePlugins, "@tencent-weixin", "openclaw-weixin"),
     path.join(corePlugins, "@tencent-weixin", "openclaw-weixin"),
+    // Feishu is BUNDLED in OpenClaw 3.22+ — do NOT add here
   ];
-  for (const p of [...qqCandidates, ...wechatCandidates]) {
+  for (const p of pluginCandidates) {
     if (fs.existsSync(p)) pluginPaths.push(p);
+  }
+
+  // Clean up stale plugins from $OPENCLAW_HOME/node_modules/ left by previous versions.
+  // These have broken openclaw/plugin-sdk resolution and cause gateway load failures.
+  const stalePluginDir = path.join(DATA_DIR, ".openclaw", "node_modules");
+  if (fs.existsSync(stalePluginDir)) {
+    try { fs.rmSync(stalePluginDir, { recursive: true, force: true }); } catch { /* ok */ }
   }
   if (pluginPaths.length > 0) {
     if (!internal.plugins) internal.plugins = {};
@@ -295,7 +301,11 @@ function handleApiConfig(req, res) {
 
         // Sync to OpenClaw auth store and internal config
         syncAuthProfiles(parsed);
-        syncInternalConfig(parsed);
+        // Only update the model in internal config if the user explicitly changed it.
+        // Without this check, saving an API key overwrites whatever model the user
+        // selected in the 18789 Control UI.
+        const modelChanged = parsed.agent?.model && parsed.agent.model !== existing.agent?.model;
+        syncInternalConfig(parsed, { updateModel: modelChanged });
 
         jsonResponse(res, 200, { success: true });
       } catch {
@@ -805,7 +815,9 @@ if (process.argv.includes("--supervisor")) {
   // Always sync internal config (gateway auth settings) even on first run with empty config.
   // Without this, gateway.auth.mode="none" and dangerouslyDisableDeviceAuth=true are never
   // written, causing the gateway to reject UI WebSocket connections on fresh installs.
-  syncInternalConfig(config);
+  // On startup, set model from user config (first-time setup or config migration).
+  // After startup, model changes come from 18789 Control UI and should NOT be overwritten.
+  syncInternalConfig(config, { updateModel: true });
   if (Object.keys(config).length > 0) {
     syncAuthProfiles(config);
   }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Logo } from "../components/Logo";
+import { showToast } from "../components/Toast";
 import { UpdateChecker } from "../components/UpdateChecker";
 import { useConfig } from "../hooks/useConfig";
 import { getProviderConfigKey, MODEL_PROVIDERS } from "../utils/config";
@@ -12,8 +13,9 @@ const GATEWAY_URL = "http://localhost:18789";
  * Never redirects or replaces the current page — all external links open in a new tab.
  */
 export function PostSetup() {
-  const { config } = useConfig();
+  const { config, updateConfig } = useConfig();
   const [gatewayStatus, setGatewayStatus] = useState<"checking" | "online" | "offline">("checking");
+  const [showModelPicker, setShowModelPicker] = useState(false);
 
   const currentModel = config?.agent?.model ?? "";
   const modelDisplay = currentModel.split("/").pop() ?? "未配置";
@@ -53,11 +55,78 @@ export function PostSetup() {
         <div className="mb-6 rounded-2xl bg-white p-6 shadow-lg ring-1 ring-gray-100">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">当前配置</h2>
           <div className="space-y-3 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">AI 模型</span>
-              <span className="font-medium text-gray-900">
-                {providerName} / {modelDisplay}
-              </span>
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">AI 模型</span>
+                <button
+                  onClick={() => setShowModelPicker(!showModelPicker)}
+                  className="flex items-center gap-1 font-medium text-indigo-600 hover:text-indigo-700"
+                >
+                  {providerName} / {modelDisplay}
+                  <svg
+                    className={`h-4 w-4 transition-transform ${showModelPicker ? "rotate-180" : ""}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+              </div>
+              {showModelPicker && (
+                <div className="mt-3 max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50">
+                  {MODEL_PROVIDERS.map((provider) => {
+                    const provCfgKey = provider.id;
+                    const provHasKey = Boolean(
+                      (config?.[provCfgKey] as Record<string, unknown> | undefined)?.apiKey,
+                    );
+                    return (
+                      <div key={provider.id}>
+                        <div className="sticky top-0 bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-500">
+                          {provider.name}
+                          {!provHasKey && (
+                            <span className="ml-1 text-amber-500">（未配置 Key）</span>
+                          )}
+                        </div>
+                        {provider.models.map((model) => {
+                          const isActive = model === currentModel;
+                          const modelLabel = model.split("/").pop() ?? model;
+                          return (
+                            <button
+                              key={model}
+                              disabled={!provHasKey}
+                              onClick={async () => {
+                                try {
+                                  await updateConfig({ agent: { ...config?.agent, model } });
+                                  showToast(`已切换到 ${modelLabel}`, "success");
+                                  setShowModelPicker(false);
+                                } catch {
+                                  showToast("切换失败", "error");
+                                }
+                              }}
+                              className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors ${
+                                isActive
+                                  ? "bg-indigo-50 font-medium text-indigo-700"
+                                  : provHasKey
+                                    ? "text-gray-700 hover:bg-white"
+                                    : "cursor-not-allowed text-gray-400"
+                              }`}
+                            >
+                              <span>{modelLabel}</span>
+                              {isActive && <span className="text-xs text-indigo-500">当前</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <div className="flex items-center justify-between">
               <span className="text-gray-600">API Key</span>

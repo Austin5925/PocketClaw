@@ -422,18 +422,16 @@ func syncConfigToOpenClaw() {
 	models["providers"] = modProviders
 	internalConfig["models"] = models
 
-	// Register community plugins installed via npm so OpenClaw discovers them.
-	// OpenClaw only scans extensions/ dirs — npm packages need explicit plugins.load.paths.
+	// Register community plugins — ONLY from app/core/node_modules/ (same tree as openclaw).
+	// $OPENCLAW_HOME/node_modules/ has broken plugin-sdk resolution (postmortem v1.2.x).
 	corePlugins := filepath.Join(baseDir, "app", "core", "node_modules")
-	homePlugins := filepath.Join(baseDir, "data", ".openclaw", "node_modules")
-	// Feishu is BUNDLED in OpenClaw 3.22+ (dist/extensions/feishu/) — do NOT add
-	// npm-installed @openclaw/feishu here (causes ERR_PACKAGE_PATH_NOT_EXPORTED).
 	pluginCandidates := []string{
-		filepath.Join(homePlugins, "@tencent-connect", "openclaw-qqbot"),
 		filepath.Join(corePlugins, "@tencent-connect", "openclaw-qqbot"),
-		filepath.Join(homePlugins, "@tencent-weixin", "openclaw-weixin"),
 		filepath.Join(corePlugins, "@tencent-weixin", "openclaw-weixin"),
 	}
+	// Clean up stale plugins from $OPENCLAW_HOME/node_modules/ left by v1.2.7-v1.2.12
+	staleDir := filepath.Join(baseDir, "data", ".openclaw", "node_modules")
+	os.RemoveAll(staleDir)
 	var pluginPaths []interface{}
 	for _, p := range pluginCandidates {
 		if _, err := os.Stat(p); err == nil {

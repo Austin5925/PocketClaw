@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.14] - 2026-03-26
+
+### Fixed
+
+- **模型切换被覆盖 (P0)**: `syncInternalConfig` 每次保存任何配置都用 user config 的模型覆盖 OpenClaw 内部配置。用户在 18789 切换模型后保存 API Key 就被重置。修复：`syncInternalConfig` 增加 `updateModel` 标志，仅在模型明确变更时写入 `agents.defaults.model`
+- **QQ/飞书不回复 (P0)**: `$OPENCLAW_HOME/node_modules/` 里的残留插件（v1.2.7-1.2.12 遗留）无法 resolve `openclaw/plugin-sdk`。修复：只从 `app/core/node_modules/` 加载插件 + 启动时自动清理 `$OPENCLAW_HOME/node_modules/`
+
+### Added
+
+- **PostSetup 模型选择器**: 落地页直接切换模型（按提供商分组，显示 Key 状态，点击即切换）
+- **GLM 4.5 Air**: 智谱新增低成本模型 glm-4.5-air
+
 ## [1.2.13] - 2026-03-26
 
 ### Fixed

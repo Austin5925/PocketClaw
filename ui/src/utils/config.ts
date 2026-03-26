@@ -81,7 +81,7 @@ export const MODEL_PROVIDERS: ModelProvider[] = [
     id: "glm",
     name: "智谱 GLM",
     description: "国产大模型，GLM-5 旗舰",
-    models: ["zhipu/glm-5", "zhipu/glm-4.7", "zhipu/glm-4.7-flash"],
+    models: ["zhipu/glm-5", "zhipu/glm-4.7", "zhipu/glm-4.7-flash", "zhipu/glm-4.5-air"],
     apiKeyUrl: "https://open.bigmodel.cn/usercenter/apikeys",
   },
   {
