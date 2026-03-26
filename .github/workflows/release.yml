@@ -136,24 +136,23 @@ jobs:
 
       - name: Pre-install ClawHub skills
         run: |
-          export OPENCLAW_HOME="${GITHUB_WORKSPACE}/portable/data/.openclaw"
-          export OPENCLAW_STATE_DIR="${GITHUB_WORKSPACE}/portable/data/.openclaw/.openclaw"
-          mkdir -p "$OPENCLAW_HOME/workspace/skills"
-          OPENCLAW_CLI="${GITHUB_WORKSPACE}/portable/app/core/node_modules/openclaw/openclaw.mjs"
+          WORKSPACE_DIR="${GITHUB_WORKSPACE}/portable/data/.openclaw/workspace"
+          mkdir -p "$WORKSPACE_DIR/skills"
+          # Install clawhub ONCE globally (npx @latest re-downloads every iteration = 30min+)
+          npm install -g clawhub@latest
+          # clawhub uses --workdir (NOT $OPENCLAW_HOME). Skills go to <workdir>/skills/<slug>/
           installed=0
           failed=0
           while IFS= read -r slug; do
             [ -z "$slug" ] && continue
-            if node "$OPENCLAW_CLI" skills install "$slug" 2>/dev/null; then
-              installed=$((installed + 1))
-            elif npx clawhub@latest install "$slug" 2>/dev/null; then
+            if clawhub install "$slug" --workdir "$WORKSPACE_DIR" 2>/dev/null; then
               installed=$((installed + 1))
             else
               echo "WARN: Failed to install $slug"
               failed=$((failed + 1))
             fi
           done < portable/system/bundled-skills.txt
-          actual=$(ls "$OPENCLAW_HOME/workspace/skills" 2>/dev/null | wc -l | tr -d ' ')
+          actual=$(ls "$WORKSPACE_DIR/skills" 2>/dev/null | wc -l | tr -d ' ')
           echo "Skills: ${installed} installed, ${failed} failed, ${actual} on disk"
 
       - name: Build Mac launchers
@@ -300,24 +299,21 @@ jobs:
       - name: Pre-install ClawHub skills
         shell: bash
         run: |
-          export OPENCLAW_HOME="${GITHUB_WORKSPACE}/portable/data/.openclaw"
-          export OPENCLAW_STATE_DIR="${GITHUB_WORKSPACE}/portable/data/.openclaw/.openclaw"
-          mkdir -p "$OPENCLAW_HOME/workspace/skills"
-          OPENCLAW_CLI="${GITHUB_WORKSPACE}/portable/app/core/node_modules/openclaw/openclaw.mjs"
+          WORKSPACE_DIR="${GITHUB_WORKSPACE}/portable/data/.openclaw/workspace"
+          mkdir -p "$WORKSPACE_DIR/skills"
+          npm install -g clawhub@latest
           installed=0
           failed=0
           while IFS= read -r slug; do
             [ -z "$slug" ] && continue
-            if node "$OPENCLAW_CLI" skills install "$slug" 2>/dev/null; then
-              installed=$((installed + 1))
-            elif npx clawhub@latest install "$slug" 2>/dev/null; then
+            if clawhub install "$slug" --workdir "$WORKSPACE_DIR" 2>/dev/null; then
               installed=$((installed + 1))
             else
               echo "WARN: Failed to install $slug"
               failed=$((failed + 1))
             fi
           done < portable/system/bundled-skills.txt
-          actual=$(ls "$OPENCLAW_HOME/workspace/skills" 2>/dev/null | wc -l | tr -d ' ')
+          actual=$(ls "$WORKSPACE_DIR/skills" 2>/dev/null | wc -l | tr -d ' ')
           echo "Skills: ${installed} installed, ${failed} failed, ${actual} on disk"
 
       - name: Build Windows launcher
