@@ -52,7 +52,12 @@ export const MODEL_PROVIDERS: ModelProvider[] = [
     id: "minimax",
     name: "MiniMax",
     description: "国产首选，中文能力强",
-    models: ["minimax/MiniMax-M2.7", "minimax/MiniMax-M2.7-highspeed"],
+    models: [
+      "minimax/MiniMax-M2.7",
+      "minimax/MiniMax-M2.7-highspeed",
+      "minimax/MiniMax-M2.5",
+      "minimax/MiniMax-M2.1",
+    ],
     recommended: true,
     apiKeyUrl: "https://platform.minimaxi.com/user-center/basic-information/interface-key",
   },

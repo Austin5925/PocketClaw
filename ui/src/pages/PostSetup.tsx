@@ -4,7 +4,15 @@ import { Logo } from "../components/Logo";
 import { showToast } from "../components/Toast";
 import { UpdateChecker } from "../components/UpdateChecker";
 import { useConfig } from "../hooks/useConfig";
+import { useGatewayConnection } from "../hooks/GatewayContext";
 import { getProviderConfigKey, MODEL_PROVIDERS } from "../utils/config";
+
+/** Notify OpenClaw gateway to reload config after model change.
+ *  File-based chokidar detection is unreliable on Windows. */
+function notifyModelChange(sendRpc: (method: string, params: Record<string, unknown>) => void) {
+  // secrets.reload forces re-read of auth + config snapshots
+  sendRpc("secrets.reload", {});
+}
 
 const GATEWAY_URL = "http://localhost:18789";
 
@@ -14,6 +22,7 @@ const GATEWAY_URL = "http://localhost:18789";
  */
 export function PostSetup() {
   const { config, updateConfig } = useConfig();
+  const { sendRpc } = useGatewayConnection();
   const [gatewayStatus, setGatewayStatus] = useState<"checking" | "online" | "offline">("checking");
   const [showModelPicker, setShowModelPicker] = useState(false);
 
@@ -103,6 +112,7 @@ export function PostSetup() {
                               onClick={async () => {
                                 try {
                                   await updateConfig({ agent: { ...config?.agent, model } });
+                                  notifyModelChange(sendRpc);
                                   showToast(`已切换到 ${modelLabel}`, "success");
                                   setShowModelPicker(false);
                                 } catch {
