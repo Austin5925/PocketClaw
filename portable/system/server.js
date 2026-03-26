@@ -393,37 +393,69 @@ async function startUpdate() {
       `pocketclaw-update-${latestVersion}.zip`,
     );
 
-    await new Promise((resolve, reject) => {
-      const file = fs.createWriteStream(tmpFile);
-      const download = (url) => {
-        https
-          .get(
-            url,
-            { headers: { "User-Agent": "PocketClaw" }, timeout: 60000 },
+    // Download with redirect following, retry, and overall timeout
+    const downloadWithRetry = (url, dest, retries = 3) => {
+      return new Promise((resolve, reject) => {
+        let attempts = 0;
+        const overallTimeout = setTimeout(() => {
+          reject(new Error("下载超时（5 分钟），请检查网络后重试"));
+        }, 5 * 60000);
+
+        const attempt = (currentUrl) => {
+          attempts++;
+          const proto = currentUrl.startsWith("http://") ? require("http") : https;
+          const req = proto.get(
+            currentUrl,
+            { headers: { "User-Agent": "PocketClaw" }, timeout: 30000 },
             (res) => {
-              if (
-                res.statusCode >= 300 &&
-                res.statusCode < 400 &&
-                res.headers.location
-              ) {
-                download(res.headers.location); // follow redirect
+              // Follow redirects (GitHub → CDN)
+              if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                res.resume(); // MUST drain redirect response to free the connection
+                attempt(res.headers.location);
                 return;
               }
               if (res.statusCode !== 200) {
-                reject(new Error(`下载失败: HTTP ${res.statusCode}`));
+                res.resume();
+                const err = new Error(`下载失败: HTTP ${res.statusCode}`);
+                if (attempts < retries) {
+                  updateState.progress = 20;
+                  setTimeout(() => attempt(url), 3000);
+                } else {
+                  clearTimeout(overallTimeout);
+                  reject(err);
+                }
                 return;
               }
+              const file = fs.createWriteStream(dest);
               res.pipe(file);
-              file.on("finish", () => {
-                file.close();
-                resolve();
-              });
+              file.on("finish", () => { file.close(); clearTimeout(overallTimeout); resolve(); });
+              file.on("error", (e) => { clearTimeout(overallTimeout); reject(e); });
             },
-          )
-          .on("error", reject);
-      };
-      download(updateUrl);
-    });
+          );
+          req.on("error", (e) => {
+            if (attempts < retries) {
+              updateState.progress = 20;
+              setTimeout(() => attempt(url), 3000);
+            } else {
+              clearTimeout(overallTimeout);
+              reject(new Error(`下载失败（${attempts} 次尝试）: ${e.message}`));
+            }
+          });
+          req.on("timeout", () => {
+            req.destroy();
+            if (attempts < retries) {
+              setTimeout(() => attempt(url), 2000);
+            } else {
+              clearTimeout(overallTimeout);
+              reject(new Error("下载连接超时，请检查网络"));
+            }
+          });
+        };
+        attempt(url);
+      });
+    };
+
+    await downloadWithRetry(updateUrl, tmpFile);
 
     updateState.status = "backing_up";
     updateState.progress = 50;
