@@ -32,7 +32,7 @@ const SECURITY_HEADERS = {
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "no-referrer",
   "Content-Security-Policy":
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws://localhost:* http://localhost:* https://api.github.com https://gitee.com https://pocketclawaus.oss-cn-shanghai.aliyuncs.com; font-src 'self'",
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws://localhost:* http://localhost:* https://api.github.com https://pocketclawaus.oss-cn-shanghai.aliyuncs.com; font-src 'self'",
 };
 
 const SHARED_CONFIG = JSON.parse(
@@ -394,21 +394,13 @@ function handleApiOpenclawVersion(res) {
 
 let updateState = { status: "idle", progress: 0, error: null, version: null };
 
-/** Try Gitee first (accessible in China), then fallback to GitHub. */
+/** Check latest version from GitHub API, download from Aliyun OSS (China CDN). */
 function fetchLatestRelease() {
   const https = require("https");
 
   const OSS_BASE = "https://pocketclawaus.oss-cn-shanghai.aliyuncs.com";
 
   const sources = [
-    {
-      name: "Gitee",
-      url: "https://gitee.com/api/v5/repos/Austin5925/PocketClaw/releases/latest",
-      headers: { "User-Agent": "PocketClaw" },
-      parseVersion: (data) => data.tag_name?.replace(/^v/, ""),
-      // Download from Aliyun OSS (fast in China), not from Gitee attachments (100MB limit)
-      buildDownloadUrl: (ver) => `${OSS_BASE}/v${ver}/PocketClaw-v${ver}-update.zip`,
-    },
     {
       name: "GitHub",
       url: "https://api.github.com/repos/Austin5925/PocketClaw/releases/latest",
@@ -422,7 +414,7 @@ function fetchLatestRelease() {
     let idx = 0;
     const tryNext = () => {
       if (idx >= sources.length) {
-        reject(new Error("无法获取最新版本（Gitee 和 GitHub 均不可达），请检查网络"));
+        reject(new Error("无法获取最新版本，请检查网络"));
         return;
       }
       const src = sources[idx++];
@@ -454,7 +446,7 @@ async function startUpdate() {
   try {
     updateState = { status: "checking", progress: 5, error: null, version: null };
 
-    // 1. Get latest version (Gitee first, then GitHub)
+    // 1. Get latest version from GitHub API, download from Aliyun OSS
     const release = await fetchLatestRelease();
     const latestVersion = release.version;
     if (!latestVersion) throw new Error("无法获取最新版本信息");

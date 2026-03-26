@@ -15,7 +15,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- **Gitee 国内更新源 (P0)**: 检查更新和下载优先走 Gitee（国内无梯子可用），fallback GitHub。CI 自动创建 Gitee Release 并上传安装包
+- **阿里云 OSS 国内加速 (P0)**: CI 自动上传 release 到阿里云 OSS（华东2上海），一键更新下载走 OSS CDN 加速，国内无需梯子
 - **代理设置**: Settings "关于与更新" Tab 新增代理输入框，填写 HTTPS_PROXY 地址后传给 OpenClaw gateway，支持海外模型（GPT、Claude、Gemini）
 - **PostSetup 重启提示**: 模型选择器下方提示"切换后引擎重启 3-5 秒"
 - **豆包 API Key 提示**: 描述中注明 Key 以 `sk-` 开头

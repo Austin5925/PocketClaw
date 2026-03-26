@@ -421,33 +421,3 @@ jobs:
           echo "  ${OSS_BASE}/v${VERSION}/PocketClaw-v${VERSION}-windows.zip"
           echo "  ${OSS_BASE}/v${VERSION}/PocketClaw-v${VERSION}-update.zip"
 
-      - name: Create Gitee release (with OSS download links)
-        continue-on-error: true
-        env:
-          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
-        run: |
-          VERSION="${{ needs.check-version.outputs.version }}"
-          OSS_BASE="https://pocketclawaus.oss-cn-shanghai.aliyuncs.com"
-
-          # Push tags to Gitee
-          git remote add gitee https://oauth2:${GITEE_TOKEN}@gitee.com/Austin5925/PocketClaw.git || true
-          git push gitee "v${VERSION}" --force 2>/dev/null || true
-
-          # Create Gitee release with OSS download links in body
-          BODY="## 下载\n\n"
-          BODY="${BODY}- [Windows 版](${OSS_BASE}/v${VERSION}/PocketClaw-v${VERSION}-windows.zip)（阿里云 OSS 国内加速）\n"
-          BODY="${BODY}- [Mac 版](${OSS_BASE}/v${VERSION}/PocketClaw-v${VERSION}-mac.zip)（阿里云 OSS 国内加速）\n"
-          BODY="${BODY}- [更新包](${OSS_BASE}/v${VERSION}/PocketClaw-v${VERSION}-update.zip)（阿里云 OSS 国内加速）\n"
-          BODY="${BODY}- [GitHub 下载](https://github.com/Austin5925/PocketClaw/releases/tag/v${VERSION})（国际）"
-
-          RELEASE_ID=$(curl -s -X POST \
-            "https://gitee.com/api/v5/repos/Austin5925/PocketClaw/releases" \
-            -H "Content-Type: application/json" \
-            -d "{\"access_token\":\"${GITEE_TOKEN}\",\"tag_name\":\"v${VERSION}\",\"name\":\"PocketClaw v${VERSION}\",\"body\":\"${BODY}\"}" \
-            | jq -r '.id // empty')
-
-          if [ -n "$RELEASE_ID" ]; then
-            echo "Gitee release created: $RELEASE_ID (with OSS download links)"
-          else
-            echo "WARN: Failed to create Gitee release"
-          fi
