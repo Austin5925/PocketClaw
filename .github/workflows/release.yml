@@ -119,8 +119,7 @@ jobs:
       - name: Install channel plugins
         run: |
           # Plugins MUST be installed alongside openclaw (same node_modules/) so they
-          # can resolve openclaw/plugin-sdk. Installing in $OPENCLAW_HOME/node_modules/
-          # fails because openclaw isn't there — only in app/core/node_modules/.
+          # can resolve openclaw/plugin-sdk.
           # Feishu is BUNDLED in OpenClaw 3.22+ — do NOT install it.
           cd portable/app/core
           npm install @tencent-connect/openclaw-qqbot@latest @tencent-weixin/openclaw-weixin@latest 2>&1 || \
@@ -128,11 +127,12 @@ jobs:
           echo "Installed channel plugins:"
           ls node_modules/@tencent-connect/ 2>/dev/null || true
           ls node_modules/@tencent-weixin/ 2>/dev/null || true
-          # Clean up any stale plugins from OPENCLAW_HOME (leftover from previous versions)
-          rm -rf "${GITHUB_WORKSPACE}/portable/data/.openclaw/node_modules/@tencent-connect" 2>/dev/null || true
-          rm -rf "${GITHUB_WORKSPACE}/portable/data/.openclaw/node_modules/@tencent-weixin" 2>/dev/null || true
-          rm -rf "${GITHUB_WORKSPACE}/portable/data/.openclaw/node_modules/@openclaw" 2>/dev/null || true
-          rm -rf "${GITHUB_WORKSPACE}/portable/data/.openclaw/node_modules/openclaw" 2>/dev/null || true
+          # CRITICAL: Remove npm-init package.json — its version "1.0.0" makes
+          # openclaw-weixin think the host is v1.0.0 instead of v2026.3.22.
+          # Plugins resolve host version by walking up to the nearest package.json.
+          rm -f package.json package-lock.json
+          # Clean up stale plugins from OPENCLAW_HOME
+          rm -rf "${GITHUB_WORKSPACE}/portable/data/.openclaw/node_modules" 2>/dev/null || true
 
       - name: Pre-install ClawHub skills
         run: |
@@ -291,11 +291,9 @@ jobs:
           echo "Installed channel plugins:"
           ls node_modules/@tencent-connect/ 2>/dev/null || true
           ls node_modules/@tencent-weixin/ 2>/dev/null || true
-          # Clean up stale plugins from OPENCLAW_HOME
-          rm -rf "${GITHUB_WORKSPACE}/portable/data/.openclaw/node_modules/@tencent-connect" 2>/dev/null || true
-          rm -rf "${GITHUB_WORKSPACE}/portable/data/.openclaw/node_modules/@tencent-weixin" 2>/dev/null || true
-          rm -rf "${GITHUB_WORKSPACE}/portable/data/.openclaw/node_modules/@openclaw" 2>/dev/null || true
-          rm -rf "${GITHUB_WORKSPACE}/portable/data/.openclaw/node_modules/openclaw" 2>/dev/null || true
+          # CRITICAL: Remove npm-init package.json (same reason as Mac build)
+          rm -f package.json package-lock.json
+          rm -rf "${GITHUB_WORKSPACE}/portable/data/.openclaw/node_modules" 2>/dev/null || true
 
       - name: Pre-install ClawHub skills
         shell: bash
@@ -393,8 +391,14 @@ jobs:
           BUCKET="pocketclawaus"
           ENDPOINT="oss-cn-shanghai.aliyuncs.com"
 
-          # Install ossutil v1 (the curl script installs ossutil64 binary)
-          curl -fsSL "https://gosspublic.alicdn.com/ossutil/install.sh" | bash
+          # Install ossutil v1 — script needs sudo for /usr/bin, or use local path
+          curl -fsSL "https://gosspublic.alicdn.com/ossutil/install.sh" | sudo bash || {
+            # Fallback: download and use from local path
+            curl -fsSL "https://gosspublic.alicdn.com/ossutil/1.7.21/ossutil-v1.7.21-linux-amd64.zip" -o /tmp/ossutil.zip
+            unzip -qo /tmp/ossutil.zip -d /tmp/ossutil
+            chmod +x /tmp/ossutil/ossutil-v1.7.21-linux-amd64/ossutil64
+            export PATH="/tmp/ossutil/ossutil-v1.7.21-linux-amd64:$PATH"
+          }
           OSSUTIL=$(command -v ossutil64 || command -v ossutil || echo "")
           if [ -z "$OSSUTIL" ]; then
             echo "ERROR: ossutil not found after install"
