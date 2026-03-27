@@ -24,7 +24,7 @@
 
 ### Q: 支持哪些 AI 模型？
 
-国内（无需翻墙）：MiniMax、DeepSeek、Kimi (月之暗面)、通义千问、智谱 GLM、豆包 (字节跳动)
+国内（无需翻墙）：MiniMax、DeepSeek、Kimi (月之暗面)、通义千问、智谱 GLM、豆包 (火山引擎)
 
 国际（需海外网络）：Claude (Anthropic)、GPT (OpenAI)、Gemini (Google)
 

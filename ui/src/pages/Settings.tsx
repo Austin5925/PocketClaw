@@ -131,6 +131,21 @@ function ChannelCard({ channel, config, onSave, saving }: ChannelCardProps) {
       {/* Description */}
       <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">{channel.description}</p>
 
+      {/* First step guidance */}
+      {channel.tutorialUrl && channel.fields.length > 0 && (
+        <p className="mb-2 text-xs text-indigo-600">
+          第一步：
+          <a
+            href={channel.tutorialUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline"
+          >
+            前往平台创建应用并获取凭证 →
+          </a>
+        </p>
+      )}
+
       {/* Experimental notice */}
       {channel.experimentalNote && (
         <div className="mb-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
@@ -323,6 +338,11 @@ function ProviderCard({
               当前使用
             </span>
           )}
+          {["anthropic", "openai", "gemini"].includes(provider.id) && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+              需海外网络
+            </span>
+          )}
           {statusIndicator}
         </div>
         {!isActive && (
@@ -430,23 +450,28 @@ function ProxyInput({
   };
 
   return (
-    <div className="flex items-center gap-2">
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="http://127.0.0.1:7890"
-        className="flex-1 rounded-lg border border-gray-200 px-3 py-2 font-mono text-sm focus:border-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-        autoComplete="off"
-      />
-      <button
-        onClick={() => void handleSave()}
-        disabled={saving}
-        className="shrink-0 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-40"
-      >
-        {saving ? "..." : "保存"}
-      </button>
-    </div>
+    <>
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="http://127.0.0.1:7890"
+          className="flex-1 rounded-lg border border-gray-200 px-3 py-2 font-mono text-sm focus:border-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+          autoComplete="off"
+        />
+        <button
+          onClick={() => void handleSave()}
+          disabled={saving}
+          className="shrink-0 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-40"
+        >
+          {saving ? "..." : "保存"}
+        </button>
+      </div>
+      <p className="mt-1 text-xs text-gray-400">
+        留空则使用系统代理。使用 Clash/V2Ray 等工具时填入本地代理地址。
+      </p>
+    </>
   );
 }
 
@@ -541,13 +566,24 @@ export function Settings() {
           patchCard(provider.id, {
             validationStatus: data.valid ? "success" : "error",
           });
+          const isOverseas = ["anthropic", "openai", "gemini"].includes(provider.id);
           showToast(
-            data.valid ? `${provider.name} 验证通过` : `${provider.name} 验证失败`,
+            data.valid
+              ? `${provider.name} 验证通过`
+              : isOverseas
+                ? `${provider.name} 验证失败（请确认海外网络/代理已开启）`
+                : `${provider.name} 验证失败`,
             data.valid ? "success" : "error",
           );
         } else {
+          const isOverseas = ["anthropic", "openai", "gemini"].includes(provider.id);
           patchCard(provider.id, { validationStatus: "error" });
-          showToast(`${provider.name} 验证失败`, "error");
+          showToast(
+            isOverseas
+              ? `${provider.name} 验证失败（请确认海外网络/代理已开启）`
+              : `${provider.name} 验证失败`,
+            "error",
+          );
         }
       } catch {
         patchCard(provider.id, { validationStatus: "error" });

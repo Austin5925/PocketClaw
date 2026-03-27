@@ -22,6 +22,9 @@ export function UpdateChecker() {
     void checkForUpdates();
   }, [checkForUpdates]);
 
+  // Auto-expand manual update instructions when one-click update fails
+  const isManualOpen = manualOpen || updateStatus.status === "error";
+
   const isInProgress =
     updating &&
     updateStatus.status !== "idle" &&
@@ -119,12 +122,12 @@ export function UpdateChecker() {
       {/* Manual update */}
       <div className="mt-3">
         <button
-          onClick={() => setManualOpen(!manualOpen)}
+          onClick={() => setManualOpen(!isManualOpen)}
           className="text-sm text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
         >
-          {manualOpen ? "\u25BC" : "\u25B6"} 手动更新方法
+          {isManualOpen ? "\u25BC" : "\u25B6"} 手动更新方法
         </button>
-        {manualOpen && (
+        {isManualOpen && (
           <p className="mt-1 text-sm text-gray-500">
             在 system 文件夹中找到 update.bat（Windows）或 update.sh（Mac），双击运行
           </p>

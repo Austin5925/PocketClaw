@@ -52,7 +52,7 @@ export const MODEL_PROVIDERS: ModelProvider[] = [
   {
     id: "minimax",
     name: "MiniMax",
-    description: "国产首选，中文能力强",
+    description: "推荐，编程能力强大",
     models: [
       "minimax/MiniMax-M2.7",
       "minimax/MiniMax-M2.7-highspeed",
@@ -65,28 +65,28 @@ export const MODEL_PROVIDERS: ModelProvider[] = [
   {
     id: "deepseek",
     name: "DeepSeek",
-    description: "编程首选，性价比高",
+    description: "国内老牌，性价比极高",
     models: ["deepseek/deepseek-chat", "deepseek/deepseek-reasoner"],
     apiKeyUrl: "https://platform.deepseek.com/api_keys",
   },
   {
     id: "kimi",
     name: "Kimi (月之暗面)",
-    description: "长文档理解，256K 上下文",
+    description: "超强上下文，多项测试表现优异",
     models: ["moonshot/kimi-k2.5", "moonshot/kimi-k2-thinking"],
     apiKeyUrl: "https://platform.moonshot.cn/console/api-keys",
   },
   {
     id: "qwen",
     name: "通义千问",
-    description: "阿里出品，免费额度大",
+    description: "阿里出品，免费额度充足",
     models: ["modelstudio/qwen3.5-plus", "modelstudio/qwen3-max", "modelstudio/qwen-turbo"],
     apiKeyUrl: "https://dashscope.console.aliyun.com/apiKey",
   },
   {
     id: "glm",
     name: "智谱 GLM",
-    description: "国产大模型，GLM-5 旗舰",
+    description: "清华系，编程能力很强",
     models: ["zhipu/glm-5", "zhipu/glm-4.7", "zhipu/glm-4.7-flash", "zhipu/glm-4.5-air"],
     apiKeyUrl: "https://open.bigmodel.cn/usercenter/apikeys",
   },
@@ -122,7 +122,7 @@ export const MODEL_PROVIDERS: ModelProvider[] = [
   {
     id: "gemini",
     name: "Gemini (Google)",
-    description: "超长上下文，需海外网络",
+    description: "多模态（图文视频），需海外网络",
     models: [
       "google/gemini-3.1-pro-preview",
       "google/gemini-3-flash-preview",

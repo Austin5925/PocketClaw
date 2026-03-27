@@ -64,7 +64,7 @@ export function PostSetup() {
         <div className="mb-6 rounded-2xl bg-white p-6 shadow-lg ring-1 ring-gray-100">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">当前配置</h2>
           <div className="space-y-3 text-sm">
-            <div>
+            <div className="relative">
               <div className="flex items-center justify-between">
                 <span className="text-gray-600">AI 模型</span>
                 <button
@@ -88,7 +88,7 @@ export function PostSetup() {
                 </button>
               </div>
               {showModelPicker && (
-                <div className="mt-3 max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50">
+                <div className="absolute left-0 right-0 z-10 mt-2 max-h-96 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 shadow-lg">
                   {MODEL_PROVIDERS.map((provider) => {
                     const provCfgKey = provider.id;
                     const provHasKey = Boolean(
@@ -162,7 +162,7 @@ export function PostSetup() {
                 {gatewayStatus === "online"
                   ? "已连接"
                   : gatewayStatus === "checking"
-                    ? "检测中..."
+                    ? "正在启动 AI 引擎，通常需要 10-20 秒..."
                     : "未就绪"}
               </span>
             </div>
@@ -210,6 +210,9 @@ export function PostSetup() {
             </svg>
           </Link>
 
+          <p className="text-center text-xs text-gray-400">
+            已预装 66 个 AI 技能（写作、编程、翻译、教育等），在 AI 界面中直接使用
+          </p>
           <p className="text-center text-xs text-gray-400">
             随时可以回到此页面修改 API Key 或频道配置
           </p>
