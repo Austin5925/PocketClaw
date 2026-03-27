@@ -362,8 +362,7 @@ func syncConfigToOpenClaw() {
 	}
 
 	// Explicitly set workspace path so OpenClaw finds ClawHub skills.
-	// Without this, OpenClaw defaults to ~/.openclaw/workspace/ which
-	// doesn't contain the bundled skills we installed to $OPENCLAW_HOME/workspace/.
+	// Workspace path + disable heartbeat
 	{
 		agents, _ := internalConfig["agents"].(map[string]interface{})
 		if agents == nil {
@@ -374,6 +373,8 @@ func syncConfigToOpenClaw() {
 			defaults = make(map[string]interface{})
 		}
 		defaults["workspace"] = filepath.Join(baseDir, "data", ".openclaw", "workspace")
+		// Disable heartbeat — sends visible "Read HEARTBEAT.md" every 30 min in 18789 UI
+		defaults["heartbeat"] = map[string]interface{}{"every": "0"}
 		agents["defaults"] = defaults
 		internalConfig["agents"] = agents
 	}

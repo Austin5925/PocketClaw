@@ -163,6 +163,11 @@ function syncInternalConfig(config, { updateModel = false } = {}) {
     internal.agents.defaults.model = "minimax/MiniMax-M2.7";
   }
 
+  // Disable heartbeat — it sends "Read HEARTBEAT.md" every 30 min as a visible
+  // user message in the 18789 Control UI chat, confusing non-technical users.
+  // Our 3210 UI filters these out, but 18789 is OpenClaw's own UI which we can't modify.
+  internal.agents.defaults.heartbeat = { every: "0" };
+
   // Explicitly set workspace path so OpenClaw finds ClawHub skills.
   // Without this, OpenClaw defaults to ~/.openclaw/workspace/ which
   // doesn't contain the bundled skills we installed to $OPENCLAW_HOME/workspace/.
