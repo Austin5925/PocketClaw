@@ -373,11 +373,32 @@ func syncConfigToOpenClaw() {
 			defaults = make(map[string]interface{})
 		}
 		defaults["workspace"] = filepath.Join(baseDir, "data", ".openclaw", "workspace")
-		// Disable heartbeat — sends visible "Read HEARTBEAT.md" every 30 min in 18789 UI
+		// Disable developer/server features that confuse consumer users
 		defaults["heartbeat"] = map[string]interface{}{"every": "0"}
 		agents["defaults"] = defaults
 		internalConfig["agents"] = agents
 	}
+
+	// Disable non-consumer features
+	internalConfig["browser"] = map[string]interface{}{"enabled": false}
+	discovery, _ := internalConfig["discovery"].(map[string]interface{})
+	if discovery == nil {
+		discovery = make(map[string]interface{})
+	}
+	mdns, _ := discovery["mdns"].(map[string]interface{})
+	if mdns == nil {
+		mdns = make(map[string]interface{})
+	}
+	mdns["mode"] = "off"
+	discovery["mdns"] = mdns
+	internalConfig["discovery"] = discovery
+	update, _ := internalConfig["update"].(map[string]interface{})
+	if update == nil {
+		update = make(map[string]interface{})
+	}
+	update["checkOnStart"] = false
+	internalConfig["update"] = update
+	internalConfig["canvasHost"] = map[string]interface{}{"enabled": false}
 
 	// Sync ALL provider configs from shared-config.json (single source of truth).
 	// Must include ALL required fields (baseUrl, api, models) to pass Zod strict validation.

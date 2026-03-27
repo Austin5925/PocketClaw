@@ -163,10 +163,14 @@ function syncInternalConfig(config, { updateModel = false } = {}) {
     internal.agents.defaults.model = "minimax/MiniMax-M2.7";
   }
 
-  // Disable heartbeat — it sends "Read HEARTBEAT.md" every 30 min as a visible
-  // user message in the 18789 Control UI chat, confusing non-technical users.
-  // Our 3210 UI filters these out, but 18789 is OpenClaw's own UI which we can't modify.
-  internal.agents.defaults.heartbeat = { every: "0" };
+  // Disable developer/server features that confuse consumer users:
+  internal.agents.defaults.heartbeat = { every: "0" }; // Visible "Read HEARTBEAT.md" every 30 min
+  internal.browser = { enabled: false };                // CDP server on port 18791 (unnecessary)
+  if (!internal.discovery) internal.discovery = {};
+  if (!internal.discovery.mdns) internal.discovery.mdns = {};
+  internal.discovery.mdns.mode = "off";                 // Broadcasts presence on local network
+  internal.update = { ...(internal.update || {}), checkOnStart: false }; // Phones home to npmjs.org
+  internal.canvasHost = { enabled: false };              // Extra file server + watcher (unnecessary)
 
   // Explicitly set workspace path so OpenClaw finds ClawHub skills.
   // Without this, OpenClaw defaults to ~/.openclaw/workspace/ which
