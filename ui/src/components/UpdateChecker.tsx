@@ -58,8 +58,8 @@ export function UpdateChecker() {
               OpenClaw 内核 {versionInfo.openclawVersion ? `v${versionInfo.openclawVersion}` : ""}
             </p>
             <p className="mt-1 text-xs text-gray-400">
-              内核版本随口袋龙虾更新自动升级，无需手动操作。18789 控制台中的 &quot;Update Now&quot;
-              按钮不可用。
+              内核版本随口袋龙虾更新自动升级，无需手动操作。OpenClaw
+              Control（localhost:18789）控制台中的 &quot;Update Now&quot; 按钮不可用。
             </p>
           </div>
         </div>
