@@ -127,10 +127,12 @@ jobs:
           echo "Installed channel plugins:"
           ls node_modules/@tencent-connect/ 2>/dev/null || true
           ls node_modules/@tencent-weixin/ 2>/dev/null || true
-          # CRITICAL: Remove npm-init package.json — its version "1.0.0" makes
+          # Fix host version: npm init -y creates version "1.0.0" which makes
           # openclaw-weixin think the host is v1.0.0 instead of v2026.3.22.
-          # Plugins resolve host version by walking up to the nearest package.json.
-          rm -f package.json package-lock.json
+          # Plugins walk up to nearest package.json to resolve host version.
+          OPENCLAW_VER=$(node -e "console.log(require('./node_modules/openclaw/package.json').version)")
+          node -e "const p=require('./package.json'); p.version='${OPENCLAW_VER}'; require('fs').writeFileSync('package.json',JSON.stringify(p,null,2))"
+          echo "app/core/package.json version set to ${OPENCLAW_VER}"
           # Clean up stale plugins from OPENCLAW_HOME
           rm -rf "${GITHUB_WORKSPACE}/portable/data/.openclaw/node_modules" 2>/dev/null || true
 
@@ -291,8 +293,10 @@ jobs:
           echo "Installed channel plugins:"
           ls node_modules/@tencent-connect/ 2>/dev/null || true
           ls node_modules/@tencent-weixin/ 2>/dev/null || true
-          # CRITICAL: Remove npm-init package.json (same reason as Mac build)
-          rm -f package.json package-lock.json
+          # Fix host version (same as Mac build)
+          OPENCLAW_VER=$(node -e "console.log(require('./node_modules/openclaw/package.json').version)")
+          node -e "const p=require('./package.json'); p.version='${OPENCLAW_VER}'; require('fs').writeFileSync('package.json',JSON.stringify(p,null,2))"
+          echo "app/core/package.json version set to ${OPENCLAW_VER}"
           rm -rf "${GITHUB_WORKSPACE}/portable/data/.openclaw/node_modules" 2>/dev/null || true
 
       - name: Pre-install ClawHub skills
