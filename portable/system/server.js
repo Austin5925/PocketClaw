@@ -1026,6 +1026,13 @@ if (process.argv.includes("--supervisor")) {
   // 5. Start UI server + open browser
   const startUI = () => {
     log("正在启动界面...");
+    server.on("error", (err) => {
+      if (err.code === "EADDRINUSE") {
+        log(`[错误] 端口 ${UI_PORT} 已被其他程序占用。请关闭占用该端口的程序后重试。`);
+        cleanup();
+        process.exit(1);
+      }
+    });
     server.listen(UI_PORT, "127.0.0.1", () => {
       log("口袋龙虾已启动！");
       log(`浏览器地址: http://localhost:${UI_PORT}`);
@@ -1038,6 +1045,13 @@ if (process.argv.includes("--supervisor")) {
   waitForGateway();
 } else {
   // Normal mode: just start the UI server (gateway managed by Go launcher)
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(`[口袋龙虾 UI] 错误: 端口 ${UI_PORT} 已被其他程序占用。请关闭占用该端口的程序后重试。`);
+      process.exit(1);
+    }
+    throw err;
+  });
   server.listen(UI_PORT, "127.0.0.1", () => {
     console.log(`[口袋龙虾 UI] Server running at http://localhost:${UI_PORT}`);
     console.log(
