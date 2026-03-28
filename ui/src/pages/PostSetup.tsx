@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Logo } from "../components/Logo";
 import { showToast } from "../components/Toast";
@@ -25,6 +25,19 @@ export function PostSetup() {
   const { sendRpc } = useGatewayConnection();
   const [gatewayStatus, setGatewayStatus] = useState<"checking" | "online" | "offline">("checking");
   const [showModelPicker, setShowModelPicker] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  // Close model picker when clicking outside
+  useEffect(() => {
+    if (!showModelPicker) return;
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setShowModelPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showModelPicker]);
 
   const currentModel = config?.agent?.model ?? "";
   const modelDisplay = currentModel.split("/").pop() ?? "未配置";
@@ -64,7 +77,7 @@ export function PostSetup() {
         <div className="mb-6 rounded-2xl bg-white p-6 shadow-lg ring-1 ring-gray-100">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">当前配置</h2>
           <div className="space-y-3 text-sm">
-            <div className="relative">
+            <div className="relative" ref={pickerRef}>
               <div className="flex items-center justify-between">
                 <span className="text-gray-600">AI 模型</span>
                 <button
