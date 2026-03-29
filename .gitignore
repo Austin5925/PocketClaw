@@ -52,6 +52,7 @@ release/
 tmp/
 temp/
 *.log
+.playwright-mcp/
 
 # === 用户数据（U 盘运行时生成） ===
 portable/data/.openclaw/credentials/
