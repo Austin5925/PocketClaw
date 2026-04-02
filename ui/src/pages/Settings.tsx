@@ -444,7 +444,8 @@ function ProviderCard({
             spellCheck={false}
           />
           <p className="mt-0.5 text-xs text-gray-400">
-            留空使用官方地址。使用中转站时填入中转站提供的 API 地址。
+            留空使用官方地址。使用中转站时填入 API 地址，通常以 /v1 结尾（如
+            https://example.com/v1）。
           </p>
         </div>
       )}
@@ -604,57 +605,17 @@ export function Settings() {
         if (state.baseUrl !== undefined) update.baseUrl = state.baseUrl.trim() || undefined;
         await updateConfig({ [provider.id]: update });
         sendRpc("secrets.reload", {});
-
-        // Auto-detect relay models when a custom base URL is set
-        const effectiveBaseUrl = state.baseUrl.trim() || getSavedBaseUrl(provider);
-        const effectiveApiKey = state.apiKey || undefined;
-        if (provider.supportsBaseUrl && effectiveBaseUrl) {
-          try {
-            const detectRes = await fetch("/api/detect-relay-models", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                providerId: provider.id,
-                baseUrl: effectiveBaseUrl,
-                apiKey: effectiveApiKey,
-              }),
-            });
-            if (detectRes.ok) {
-              const detectData = (await detectRes.json()) as {
-                success?: boolean;
-                matched?: Record<string, string>;
-                matchCount?: number;
-              };
-              if (detectData.success && detectData.matched && detectData.matchCount) {
-                await updateConfig({
-                  [provider.id]: { relayModelMap: detectData.matched },
-                });
-                showToast(
-                  `${provider.name} 已保存，中转站匹配到 ${detectData.matchCount} 个模型`,
-                  "success",
-                );
-              } else {
-                showToast(`${provider.name} 已保存（中转站未匹配到模型，将使用默认名）`, "success");
-              }
-            } else {
-              showToast(`${provider.name} 已保存`, "success");
-            }
-          } catch {
-            showToast(`${provider.name} 已保存`, "success");
-          }
-        } else {
-          const parts: string[] = [];
-          if (state.apiKey) parts.push("API Key");
-          if (state.baseUrl.trim()) parts.push("API 地址");
-          showToast(`${provider.name} ${parts.join(" + ") || "设置"}已保存`, "success");
-        }
+        const parts: string[] = [];
+        if (state.apiKey) parts.push("API Key");
+        if (state.baseUrl.trim()) parts.push("API 地址");
+        showToast(`${provider.name} ${parts.join(" + ") || "设置"}已保存`, "success");
         patchCard(provider.id, { saving: false, apiKey: "", validationStatus: "idle" });
       } catch {
         showToast("保存失败", "error");
         patchCard(provider.id, { saving: false });
       }
     },
-    [getCardState, getSavedBaseUrl, patchCard, updateConfig, sendRpc],
+    [getCardState, patchCard, updateConfig, sendRpc],
   );
 
   const handleValidate = useCallback(
@@ -662,6 +623,61 @@ export function Settings() {
       const state = getCardState(provider.id);
       if (!state.apiKey) return;
       patchCard(provider.id, { validationStatus: "validating" });
+
+      // If a custom base URL is set, validate via relay model detection instead
+      // of calling the official API endpoint (which wouldn't work for relays).
+      const effectiveBaseUrl = state.baseUrl.trim() || getSavedBaseUrl(provider);
+      if (provider.supportsBaseUrl && effectiveBaseUrl) {
+        try {
+          const detectRes = await fetch("/api/detect-relay-models", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              providerId: provider.id,
+              baseUrl: effectiveBaseUrl,
+              apiKey: state.apiKey,
+            }),
+          });
+          if (detectRes.ok) {
+            const detectData = (await detectRes.json()) as {
+              success?: boolean;
+              matched?: Record<string, string>;
+              matchCount?: number;
+              totalRelay?: number;
+              error?: string;
+            };
+            if (detectData.success && detectData.matched && detectData.matchCount) {
+              // Save relay model mapping so OpenClaw uses correct model names
+              await updateConfig({
+                [provider.id]: { relayModelMap: detectData.matched },
+              });
+              patchCard(provider.id, { validationStatus: "success" });
+              showToast(
+                `${provider.name} 中转站验证通过，匹配到 ${detectData.matchCount} 个模型`,
+                "success",
+              );
+            } else if (detectData.success && detectData.totalRelay) {
+              patchCard(provider.id, { validationStatus: "success" });
+              showToast(
+                `${provider.name} 中转站已连通（${detectData.totalRelay} 个模型，但未匹配到已知模型）`,
+                "success",
+              );
+            } else {
+              patchCard(provider.id, { validationStatus: "error" });
+              showToast(detectData.error || `${provider.name} 中转站验证失败`, "error");
+            }
+          } else {
+            patchCard(provider.id, { validationStatus: "error" });
+            showToast(`${provider.name} 中转站验证失败`, "error");
+          }
+        } catch {
+          patchCard(provider.id, { validationStatus: "error" });
+          showToast("中转站验证请求失败", "error");
+        }
+        return;
+      }
+
+      // Original validation: call the official provider API endpoint
       try {
         const modelPrefix = provider.models[0]?.split("/")[0] ?? "";
         const res = await fetch("/api/validate-key", {
@@ -702,7 +718,7 @@ export function Settings() {
         showToast("验证请求失败", "error");
       }
     },
-    [getCardState, patchCard],
+    [getCardState, getSavedBaseUrl, patchCard, updateConfig],
   );
 
   const handleSetDefault = useCallback(
