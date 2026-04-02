@@ -34,9 +34,8 @@
     "baseUrl": "https://api.moonshot.cn/v1",
     "api": "openai-completions",
     "models": [
-      { "id": "kimi-k2.5",        "name": "Kimi K2.5" },
-      { "id": "kimi-k2-thinking", "name": "Kimi K2 Thinking" },
-      { "id": "moonshot-v1-128k", "name": "Moonshot V1 128K" }
+      { "id": "kimi-k2.5",             "name": "Kimi K2.5" },
+      { "id": "kimi-k2-turbo-preview", "name": "Kimi K2 Turbo (高速)" }
     ]
   },
   "modelstudio": {

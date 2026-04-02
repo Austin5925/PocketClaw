@@ -73,7 +73,7 @@ export const MODEL_PROVIDERS: ModelProvider[] = [
     id: "kimi",
     name: "Kimi (月之暗面)",
     description: "超强上下文，多项测试表现优异",
-    models: ["moonshot/kimi-k2.5", "moonshot/kimi-k2-thinking"],
+    models: ["moonshot/kimi-k2.5", "moonshot/kimi-k2-turbo-preview"],
     apiKeyUrl: "https://platform.moonshot.cn/console/api-keys",
   },
   {
