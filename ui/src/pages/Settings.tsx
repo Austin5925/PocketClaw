@@ -672,6 +672,11 @@ export function Settings() {
           agent: { ...config?.agent, model: provider.models[0] ?? "" },
         });
         sendRpc("secrets.reload", {});
+        // Create a fresh session after model switch. Old sessions may cache a
+        // stale thinkingLevel that overrides thinkingDefault, and a failed run
+        // (e.g. Kimi K2.5 thinking timeout) can corrupt the session tree
+        // making ALL subsequent messages hang — even after switching models.
+        sendRpc("sessions.create", { label: undefined, agentId: "main" });
         showToast(`已切换到 ${provider.name}`, "success");
       } catch {
         showToast("切换失败", "error");
