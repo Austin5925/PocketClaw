@@ -2,16 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.35] - 2026-04-02
+
+### Fixed
+
+- **Kimi K2.5 无响应根因修复 (P0)**: 清理 v1.2.28 遗留的 4 个 Zod 非法键（browser/canvasHost/discovery/update），这些脏数据导致 OpenClaw 配置验证失败 → 整个 provider 配置丢失 → 非默认模型（如 Kimi）零事件返回。v1.2.29 只停止了写入但从未清理已有文件，脏数据每次 syncInternalConfig 都被原样保留。
+- **关闭 thinking mode**: 消费用户不需要 thinking 模式，且部分 provider 开启后延迟显著增加
+
+### Added
+
+- **诊断端点**: `/api/debug-config` 显示 gateway 实际读取的内部配置（含脏键检测），`/api/test-chat` 直接测试 provider API
+
 ## [1.2.34] - 2026-04-02
 
 ### Added
 
 - **中转站 Base URL 支持**: 海外模型（Claude/GPT/Gemini）可自定义 API 地址，支持国内中转站服务
-- **直接 API 测试**: 新增 `/api/test-chat` 诊断端点，绕过 OpenClaw 直接测试 provider API 通信
 
 ### Fixed
 
-- **Kimi K2.5 无响应修复**: 全局关闭 thinking mode (`thinkingDefault: "off"`)，防止 OpenClaw 的 thinking wrapper 拦截 moonshot 请求导致零事件返回
 - **Base URL 变更触发重启**: 修改中转站地址后自动重启 gateway 使配置生效
 
 ### Changed

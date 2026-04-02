@@ -140,6 +140,18 @@ function syncInternalConfig(config, { updateModel = false } = {}) {
     // File doesn't exist yet, start fresh
   }
 
+  // ── Cleanup stale keys from v1.2.28 ──────────────────────────────────────
+  // v1.2.28 (commit aec812c) wrote browser/canvasHost/discovery/update directly
+  // into openclaw.json. v1.2.29 stopped writing them but never cleaned existing
+  // files. These keys cause Zod strict() validation failure → gateway ignores
+  // the entire config → provider resolution fails → Kimi (and any non-default
+  // model) silently produces zero chat events because the provider config is lost.
+  // This is the root cause of the Kimi K2.5 non-response bug reported since v1.2.28.
+  delete internal.browser;
+  delete internal.canvasHost;
+  delete internal.discovery;
+  delete internal.update;
+
   // Local-only: no auth + no device identity checks
   if (!internal.gateway) internal.gateway = {};
   if (!internal.gateway.auth) internal.gateway.auth = {};
@@ -167,10 +179,9 @@ function syncInternalConfig(config, { updateModel = false } = {}) {
   // heartbeat is part of agents.defaults which IS in the config schema.
   internal.agents.defaults.heartbeat = { every: "0" };
 
-  // Disable thinking mode globally. OpenClaw may wrap certain providers (moonshot)
-  // with thinking models that silently fail or add extreme latency. Kimi K2.5 via
-  // moonshot provider produces zero chat events with thinking enabled — likely because
-  // the thinking wrapper intercepts the request and fails without emitting error events.
+  // Disable extended thinking globally. Consumer users don't need thinking mode,
+  // and some providers (moonshot) add significant latency when thinking is on.
+  // If thinking is needed per-model, it can be set via 18789 Control UI.
   internal.agents.defaults.thinkingDefault = "off";
 
   // NOTE: browser, canvasHost, discovery.mdns, update.checkOnStart are NOT in
@@ -843,6 +854,32 @@ function handleApiValidateKey(req, res) {
 }
 
 /**
+ * Diagnostic endpoint: GET /api/debug-config
+ * Returns the actual internal openclaw.json that the gateway reads,
+ * with API keys masked. Shows whether stale keys exist.
+ */
+function handleApiDebugConfig(_req, res) {
+  const internalPath = path.join(DATA_DIR, ".openclaw", ".openclaw", "openclaw.json");
+  try {
+    const raw = JSON.parse(fs.readFileSync(internalPath, "utf-8"));
+    // Mask all API keys for security
+    const masked = maskApiKeys(raw);
+    // Flag stale keys that shouldn't exist
+    const staleKeys = ["browser", "canvasHost", "discovery", "update"]
+      .filter((k) => k in raw);
+    jsonResponse(res, 200, {
+      config: masked,
+      staleKeys,
+      hasStaleKeys: staleKeys.length > 0,
+      moonshotProvider: masked?.models?.providers?.moonshot || null,
+      defaultModel: masked?.agents?.defaults?.model || null,
+    });
+  } catch (e) {
+    jsonResponse(res, 200, { error: `无法读取: ${e.message}` });
+  }
+}
+
+/**
  * Diagnostic endpoint: POST /api/test-chat
  * Bypasses OpenClaw and makes a direct chat completions call to the provider API.
  * Used to verify that the Kimi (moonshot) API is reachable and responding correctly.
@@ -997,6 +1034,7 @@ const server = http.createServer((req, res) => {
   if (pathname === "/api/config") return handleApiConfig(req, res);
   if (pathname === "/api/validate-key") return handleApiValidateKey(req, res);
   if (pathname === "/api/test-chat") return handleApiTestChat(req, res);
+  if (pathname === "/api/debug-config") return handleApiDebugConfig(req, res);
   if (pathname === "/api/version") return handleApiVersion(res);
   if (pathname === "/api/openclaw-version") return handleApiOpenclawVersion(res);
   if (pathname === "/api/health") return handleApiHealth(res);
