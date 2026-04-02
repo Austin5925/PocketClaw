@@ -547,7 +547,12 @@ export function Settings() {
 
   const getCardState = useCallback(
     (id: string): ProviderCardState =>
-      cardStates[id] ?? { apiKey: "", baseUrl: "", saving: false, validationStatus: "idle" as const },
+      cardStates[id] ?? {
+        apiKey: "",
+        baseUrl: "",
+        saving: false,
+        validationStatus: "idle" as const,
+      },
     [cardStates],
   );
 
