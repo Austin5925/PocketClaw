@@ -22,6 +22,10 @@ export interface ModelProvider {
   models: string[];
   recommended?: boolean;
   apiKeyUrl?: string;
+  /** Show a custom Base URL input (for relay/proxy services). */
+  supportsBaseUrl?: boolean;
+  /** Default baseUrl shown as placeholder when no custom URL is set. */
+  defaultBaseUrl?: string;
 }
 
 export interface ChatMessage {

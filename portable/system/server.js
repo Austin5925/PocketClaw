@@ -167,6 +167,12 @@ function syncInternalConfig(config, { updateModel = false } = {}) {
   // heartbeat is part of agents.defaults which IS in the config schema.
   internal.agents.defaults.heartbeat = { every: "0" };
 
+  // Disable thinking mode globally. OpenClaw may wrap certain providers (moonshot)
+  // with thinking models that silently fail or add extreme latency. Kimi K2.5 via
+  // moonshot provider produces zero chat events with thinking enabled — likely because
+  // the thinking wrapper intercepts the request and fails without emitting error events.
+  internal.agents.defaults.thinkingDefault = "off";
+
   // NOTE: browser, canvasHost, discovery.mdns, update.checkOnStart are NOT in
   // OpenClaw's config file Zod schema (they're CLI/runtime params). Writing them
   // to openclaw.json causes Zod strict() validation failure → gateway crash.
@@ -203,9 +209,11 @@ function syncInternalConfig(config, { updateModel = false } = {}) {
       }
     }
 
+    // Use custom baseUrl from user config (relay/proxy) if set, otherwise default.
+    const customBaseUrl = config[configKey]?.baseUrl || config[providerKey]?.baseUrl;
     internal.models.providers[providerKey] = {
       ...existing,
-      baseUrl: providerCfg.baseUrl,
+      baseUrl: customBaseUrl || providerCfg.baseUrl,
       apiKey: apiKey ?? existing.apiKey,
       api: providerCfg.api,
       models: mergedModels,
@@ -356,11 +364,17 @@ function handleApiConfig(req, res) {
         // selected in the 18789 Control UI.
         const modelChanged = parsed.agent?.model && parsed.agent.model !== existing.agent?.model;
         const channelsChanged = JSON.stringify(parsed.channels || null) !== JSON.stringify(existing.channels || null);
+        // Detect baseUrl changes (relay/proxy) that require gateway restart
+        const baseUrlChanged = KNOWN_PROVIDERS.some((pid) => {
+          const newUrl = parsed[pid]?.baseUrl;
+          const oldUrl = existing[pid]?.baseUrl;
+          return newUrl !== undefined && newUrl !== oldUrl;
+        });
         syncInternalConfig(parsed, { updateModel: modelChanged });
 
         // Delay restart 500ms to let chokidar complete its hot-reload cycle (300ms debounce).
         // Without this delay, the gateway restart races with hot-reload and may cache stale model.
-        const needsRestart = modelChanged || channelsChanged;
+        const needsRestart = modelChanged || channelsChanged || baseUrlChanged;
         if (needsRestart) {
           setTimeout(() => notifyGatewayRestart(), 500);
         }
@@ -828,12 +842,161 @@ function handleApiValidateKey(req, res) {
   });
 }
 
+/**
+ * Diagnostic endpoint: POST /api/test-chat
+ * Bypasses OpenClaw and makes a direct chat completions call to the provider API.
+ * Used to verify that the Kimi (moonshot) API is reachable and responding correctly.
+ * Body: { provider?: string } (defaults to current default model's provider)
+ */
+function handleApiTestChat(req, res) {
+  if (req.method !== "POST") {
+    res.writeHead(405, SECURITY_HEADERS);
+    res.end();
+    return;
+  }
+
+  readBody(req, res, (body) => {
+    try {
+      const https = require("https");
+      const parsed = body ? JSON.parse(body) : {};
+
+      // Read user config for API keys and model
+      const configPath = path.join(DATA_DIR, ".openclaw", "openclaw.json");
+      let config = {};
+      try { config = JSON.parse(fs.readFileSync(configPath, "utf-8")); } catch { /* ok */ }
+
+      // Determine target provider
+      const currentModel = config.agent?.model || "minimax/MiniMax-M2.7";
+      const providerPrefix = parsed.provider || currentModel.split("/")[0];
+      const modelId = currentModel.split("/")[1] || currentModel;
+
+      // Look up provider config from shared-config
+      const providerCfg = SHARED_CONFIG[providerPrefix];
+      if (!providerCfg) {
+        jsonResponse(res, 200, { ok: false, error: `未知 provider: ${providerPrefix}` });
+        return;
+      }
+
+      // Find API key
+      const configKey = CONFIG_KEY_FOR_PROVIDER[providerPrefix] || providerPrefix;
+      const apiKey = config[configKey]?.apiKey || config[providerPrefix]?.apiKey;
+      if (!apiKey) {
+        jsonResponse(res, 200, { ok: false, error: `未找到 ${providerPrefix} 的 API Key` });
+        return;
+      }
+
+      // Determine base URL (custom relay or default)
+      const customBaseUrl = config[configKey]?.baseUrl || config[providerPrefix]?.baseUrl;
+      const baseUrl = customBaseUrl || providerCfg.baseUrl;
+
+      const urlObj = new URL(baseUrl + "/chat/completions");
+      const headers = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      };
+
+      // Non-OpenAI formats: skip direct test (validate-key already covers them)
+      if (providerCfg.api !== "openai-completions") {
+        jsonResponse(res, 200, { ok: true, skipped: true, reason: `${providerCfg.api} 格式暂不支持直接测试，请用"验证"按钮` });
+        return;
+      }
+
+      const postData = JSON.stringify({
+        model: modelId,
+        messages: [{ role: "user", content: "hi" }],
+        max_tokens: 10,
+        stream: false,
+      });
+
+      const options = {
+        hostname: urlObj.hostname,
+        port: urlObj.port || 443,
+        path: urlObj.pathname,
+        method: "POST",
+        headers: { ...headers, "Content-Length": Buffer.byteLength(postData) },
+        timeout: 30000,
+      };
+
+      const startTime = Date.now();
+      const apiReq = https.request(options, (apiRes) => {
+        let data = "";
+        apiRes.on("data", (chunk) => { data += chunk; });
+        apiRes.on("end", () => {
+          const elapsed = Date.now() - startTime;
+          try {
+            const json = JSON.parse(data);
+            if (apiRes.statusCode === 200 && json.choices) {
+              const reply = json.choices[0]?.message?.content || "(empty)";
+              jsonResponse(res, 200, {
+                ok: true,
+                provider: providerPrefix,
+                model: modelId,
+                baseUrl,
+                statusCode: apiRes.statusCode,
+                reply: reply.slice(0, 200),
+                elapsed: `${elapsed}ms`,
+              });
+            } else {
+              jsonResponse(res, 200, {
+                ok: false,
+                provider: providerPrefix,
+                model: modelId,
+                baseUrl,
+                statusCode: apiRes.statusCode,
+                error: json.error?.message || JSON.stringify(json).slice(0, 500),
+                elapsed: `${elapsed}ms`,
+              });
+            }
+          } catch {
+            jsonResponse(res, 200, {
+              ok: false,
+              provider: providerPrefix,
+              model: modelId,
+              baseUrl,
+              statusCode: apiRes.statusCode,
+              error: `Non-JSON response: ${data.slice(0, 200)}`,
+              elapsed: `${elapsed}ms`,
+            });
+          }
+        });
+      });
+
+      apiReq.on("error", (e) => {
+        jsonResponse(res, 200, {
+          ok: false,
+          provider: providerPrefix,
+          model: modelId,
+          baseUrl,
+          error: `连接失败: ${e.message}`,
+        });
+      });
+
+      apiReq.on("timeout", () => {
+        apiReq.destroy();
+        jsonResponse(res, 200, {
+          ok: false,
+          provider: providerPrefix,
+          model: modelId,
+          baseUrl,
+          error: "请求超时 (30s)",
+        });
+      });
+
+      apiReq.write(postData);
+      apiReq.end();
+    } catch (e) {
+      jsonResponse(res, 400, { error: `Invalid request: ${e.message}` });
+    }
+  });
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || "/", `http://localhost:${UI_PORT}`);
   const pathname = url.pathname;
 
   if (pathname === "/api/config") return handleApiConfig(req, res);
   if (pathname === "/api/validate-key") return handleApiValidateKey(req, res);
+  if (pathname === "/api/test-chat") return handleApiTestChat(req, res);
   if (pathname === "/api/version") return handleApiVersion(res);
   if (pathname === "/api/openclaw-version") return handleApiOpenclawVersion(res);
   if (pathname === "/api/health") return handleApiHealth(res);

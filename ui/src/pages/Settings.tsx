@@ -256,6 +256,7 @@ type ValidationStatus = "idle" | "validating" | "success" | "error";
 
 interface ProviderCardState {
   apiKey: string;
+  baseUrl: string;
   saving: boolean;
   validationStatus: ValidationStatus;
 }
@@ -274,8 +275,10 @@ interface ProviderCardProps {
   provider: ModelProvider;
   isActive: boolean;
   hasSavedKey: boolean;
+  savedBaseUrl: string;
   cardState: ProviderCardState;
   onApiKeyChange: (key: string) => void;
+  onBaseUrlChange: (url: string) => void;
   onSave: () => void;
   onValidate: () => void;
   onSetDefault: () => void;
@@ -285,14 +288,16 @@ function ProviderCard({
   provider,
   isActive,
   hasSavedKey,
+  savedBaseUrl,
   cardState,
   onApiKeyChange,
+  onBaseUrlChange,
   onSave,
   onValidate,
   onSetDefault,
 }: ProviderCardProps) {
   const [visible, setVisible] = useState(false);
-  const { apiKey, saving, validationStatus } = cardState;
+  const { apiKey, baseUrl, saving, validationStatus } = cardState;
 
   const statusIndicator = (() => {
     if (validationStatus === "validating") {
@@ -367,7 +372,7 @@ function ProviderCard({
           )}
           {["anthropic", "openai", "gemini"].includes(provider.id) && (
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-              需海外网络
+              需海外网络或中转站
             </span>
           )}
           {statusIndicator}
@@ -422,6 +427,27 @@ function ProviderCard({
           {saving ? "..." : "保存"}
         </button>
       </div>
+
+      {/* Custom Base URL (relay/proxy) — only for providers that support it */}
+      {provider.supportsBaseUrl && (
+        <div className="mb-2">
+          <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+            API 地址（中转站）
+          </label>
+          <input
+            type="text"
+            value={baseUrl}
+            onChange={(e) => onBaseUrlChange(e.target.value)}
+            placeholder={savedBaseUrl || provider.defaultBaseUrl || "使用官方默认地址"}
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 font-mono text-sm transition-colors focus:border-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <p className="mt-0.5 text-xs text-gray-400">
+            留空使用官方地址。使用中转站时填入中转站提供的 API 地址。
+          </p>
+        </div>
+      )}
 
       {/* Footer: API key link + model list */}
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
@@ -521,7 +547,7 @@ export function Settings() {
 
   const getCardState = useCallback(
     (id: string): ProviderCardState =>
-      cardStates[id] ?? { apiKey: "", saving: false, validationStatus: "idle" as const },
+      cardStates[id] ?? { apiKey: "", baseUrl: "", saving: false, validationStatus: "idle" as const },
     [cardStates],
   );
 
@@ -550,19 +576,33 @@ export function Settings() {
     [config],
   );
 
+  /** Get saved custom base URL for a provider (empty string if using default). */
+  const getSavedBaseUrl = useCallback(
+    (provider: ModelProvider): string => {
+      if (!config) return "";
+      const providerCfg = config[provider.id] as Record<string, unknown> | undefined;
+      return (providerCfg?.baseUrl as string) ?? "";
+    },
+    [config],
+  );
+
   /* ---- Handlers ---- */
 
   const handleSave = useCallback(
     async (provider: ModelProvider) => {
       const state = getCardState(provider.id);
-      if (!state.apiKey) return;
+      if (!state.apiKey && !state.baseUrl) return;
       patchCard(provider.id, { saving: true });
       try {
-        await updateConfig({
-          [provider.id]: { apiKey: state.apiKey },
-        });
+        const update: Record<string, unknown> = {};
+        if (state.apiKey) update.apiKey = state.apiKey;
+        if (state.baseUrl !== undefined) update.baseUrl = state.baseUrl.trim() || undefined;
+        await updateConfig({ [provider.id]: update });
         sendRpc("secrets.reload", {});
-        showToast(`${provider.name} API Key 已保存`, "success");
+        const parts: string[] = [];
+        if (state.apiKey) parts.push("API Key");
+        if (state.baseUrl.trim()) parts.push("API 地址");
+        showToast(`${provider.name} ${parts.join(" + ") || "设置"}已保存`, "success");
         patchCard(provider.id, { saving: false, apiKey: "", validationStatus: "idle" });
       } catch {
         showToast("保存失败", "error");
@@ -731,8 +771,10 @@ export function Settings() {
                         provider={provider}
                         isActive={activeConfigKey === provider.id}
                         hasSavedKey={hasSavedKey(provider)}
+                        savedBaseUrl={getSavedBaseUrl(provider)}
                         cardState={getCardState(provider.id)}
                         onApiKeyChange={(key) => patchCard(provider.id, { apiKey: key })}
+                        onBaseUrlChange={(url) => patchCard(provider.id, { baseUrl: url })}
                         onSave={() => void handleSave(provider)}
                         onValidate={() => void handleValidate(provider)}
                         onSetDefault={() => void handleSetDefault(provider)}
@@ -751,8 +793,10 @@ export function Settings() {
                         provider={provider}
                         isActive={activeConfigKey === provider.id}
                         hasSavedKey={hasSavedKey(provider)}
+                        savedBaseUrl={getSavedBaseUrl(provider)}
                         cardState={getCardState(provider.id)}
                         onApiKeyChange={(key) => patchCard(provider.id, { apiKey: key })}
+                        onBaseUrlChange={(url) => patchCard(provider.id, { baseUrl: url })}
                         onSave={() => void handleSave(provider)}
                         onValidate={() => void handleValidate(provider)}
                         onSetDefault={() => void handleSetDefault(provider)}

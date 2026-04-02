@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.34] - 2026-04-02
+
+### Added
+
+- **中转站 Base URL 支持**: 海外模型（Claude/GPT/Gemini）可自定义 API 地址，支持国内中转站服务
+- **直接 API 测试**: 新增 `/api/test-chat` 诊断端点，绕过 OpenClaw 直接测试 provider API 通信
+
+### Fixed
+
+- **Kimi K2.5 无响应修复**: 全局关闭 thinking mode (`thinkingDefault: "off"`)，防止 OpenClaw 的 thinking wrapper 拦截 moonshot 请求导致零事件返回
+- **Base URL 变更触发重启**: 修改中转站地址后自动重启 gateway 使配置生效
+
+### Changed
+
+- **海外模型标签**: "需海外网络" → "需海外网络或中转站"
+- **海外模型描述**: 增加"或中转站"说明
+
 ## [1.2.28] - 2026-03-28
 
 ### Fixed
