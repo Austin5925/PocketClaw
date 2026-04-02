@@ -58,16 +58,38 @@ function extractText(msg: Record<string, unknown>): string {
   return "";
 }
 
-/** Check if a message is an internal system message that should be hidden */
+/** Check if a message is an internal system message that should be hidden.
+ *  Sources (verified from OpenClaw pi-embedded source):
+ *  - HEARTBEAT_PROMPT: "Read HEARTBEAT.md if it exists..."
+ *  - HEARTBEAT_TOKEN: "HEARTBEAT_OK"
+ *  - BARE_SESSION_RESET_PROMPT: "A new session was started via /new or /reset..."
+ *  - GOOGLE_TURN_ORDER_BOOTSTRAP_TEXT: "(session bootstrap)"
+ *  - SILENT_REPLY_TOKEN: "NO_REPLY"
+ *  - Current time line appended to reset prompts
+ *  - Read *.md workspace bootstrap injections
+ */
 function isInternalMessage(text: string): boolean {
   if (!text) return false;
   const t = text.trim();
   return (
+    // Heartbeat
     t.startsWith("Read HEARTBEAT") ||
     t === "HEARTBEAT_OK" ||
     t.startsWith("[heartbeat]") ||
     t.startsWith("[system]") ||
-    /^Read\s+[\w.-]+\.md\b/.test(t)
+    // Session reset/new prompt
+    t.startsWith("A new session was started") ||
+    t.includes("Run your Session Startup sequence") ||
+    t.includes("greet the user in your configured persona") ||
+    // Silent reply token
+    t === "NO_REPLY" ||
+    t.startsWith("NO_REPLY") ||
+    // Google turn order bootstrap
+    t === "(session bootstrap)" ||
+    // Workspace bootstrap file reads
+    /^Read\s+[\w.-]+\.md\b/.test(t) ||
+    // Current time injection (appended to reset prompts)
+    (/^Current time:/.test(t) && t.length < 200)
   );
 }
 
