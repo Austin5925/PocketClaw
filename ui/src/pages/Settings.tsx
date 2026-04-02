@@ -604,17 +604,57 @@ export function Settings() {
         if (state.baseUrl !== undefined) update.baseUrl = state.baseUrl.trim() || undefined;
         await updateConfig({ [provider.id]: update });
         sendRpc("secrets.reload", {});
-        const parts: string[] = [];
-        if (state.apiKey) parts.push("API Key");
-        if (state.baseUrl.trim()) parts.push("API 地址");
-        showToast(`${provider.name} ${parts.join(" + ") || "设置"}已保存`, "success");
+
+        // Auto-detect relay models when a custom base URL is set
+        const effectiveBaseUrl = state.baseUrl.trim() || getSavedBaseUrl(provider);
+        const effectiveApiKey = state.apiKey || undefined;
+        if (provider.supportsBaseUrl && effectiveBaseUrl) {
+          try {
+            const detectRes = await fetch("/api/detect-relay-models", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                providerId: provider.id,
+                baseUrl: effectiveBaseUrl,
+                apiKey: effectiveApiKey,
+              }),
+            });
+            if (detectRes.ok) {
+              const detectData = (await detectRes.json()) as {
+                success?: boolean;
+                matched?: Record<string, string>;
+                matchCount?: number;
+              };
+              if (detectData.success && detectData.matched && detectData.matchCount) {
+                await updateConfig({
+                  [provider.id]: { relayModelMap: detectData.matched },
+                });
+                showToast(
+                  `${provider.name} 已保存，中转站匹配到 ${detectData.matchCount} 个模型`,
+                  "success",
+                );
+              } else {
+                showToast(`${provider.name} 已保存（中转站未匹配到模型，将使用默认名）`, "success");
+              }
+            } else {
+              showToast(`${provider.name} 已保存`, "success");
+            }
+          } catch {
+            showToast(`${provider.name} 已保存`, "success");
+          }
+        } else {
+          const parts: string[] = [];
+          if (state.apiKey) parts.push("API Key");
+          if (state.baseUrl.trim()) parts.push("API 地址");
+          showToast(`${provider.name} ${parts.join(" + ") || "设置"}已保存`, "success");
+        }
         patchCard(provider.id, { saving: false, apiKey: "", validationStatus: "idle" });
       } catch {
         showToast("保存失败", "error");
         patchCard(provider.id, { saving: false });
       }
     },
-    [getCardState, patchCard, updateConfig, sendRpc],
+    [getCardState, getSavedBaseUrl, patchCard, updateConfig, sendRpc],
   );
 
   const handleValidate = useCallback(

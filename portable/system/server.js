@@ -209,12 +209,24 @@ function syncInternalConfig(config, { updateModel = false } = {}) {
     const apiKey = config[configKey]?.apiKey || config[providerKey]?.apiKey;
 
     const existing = internal.models.providers[providerKey] || {};
-    // Merge models: keep user-added models from OpenClaw, add ours if missing
-    const existingModels = Array.isArray(existing.models) ? existing.models : [];
+
+    // Relay model mapping: if user has a relayModelMap, use relay model IDs
+    // instead of the default shared-config IDs so OpenClaw sends the correct
+    // model name to the relay API (e.g. "anthropic/claude-sonnet-4.6" instead
+    // of "claude-sonnet-4-6").
+    const relayMap = config[configKey]?.relayModelMap || config[providerKey]?.relayModelMap;
     const sharedModels = Array.isArray(providerCfg.models) ? providerCfg.models : [];
+    const resolvedModels = sharedModels.map((m) => {
+      const originalId = m.id || m;
+      const relayId = relayMap?.[originalId];
+      return relayId ? { id: relayId, name: m.name } : m;
+    });
+
+    // Merge: keep user-added models from OpenClaw, add ours if missing
+    const existingModels = Array.isArray(existing.models) ? existing.models : [];
     const mergedModelIds = new Set(existingModels.map((m) => m.id || m));
     const mergedModels = [...existingModels];
-    for (const m of sharedModels) {
+    for (const m of resolvedModels) {
       if (!mergedModelIds.has(m.id || m)) {
         mergedModels.push(m);
       }
@@ -222,11 +234,14 @@ function syncInternalConfig(config, { updateModel = false } = {}) {
 
     // Use custom baseUrl from user config (relay/proxy) if set, otherwise default.
     const customBaseUrl = config[configKey]?.baseUrl || config[providerKey]?.baseUrl;
+    // When using a relay, force openai-completions API since relays (NewAPI/OneAPI)
+    // expose OpenAI-compatible endpoints, not native Anthropic/Google formats.
+    const effectiveApi = customBaseUrl ? "openai-completions" : providerCfg.api;
     internal.models.providers[providerKey] = {
       ...existing,
       baseUrl: customBaseUrl || providerCfg.baseUrl,
       apiKey: apiKey ?? existing.apiKey,
-      api: providerCfg.api,
+      api: effectiveApi,
       models: mergedModels,
     };
   }
@@ -853,6 +868,159 @@ function handleApiValidateKey(req, res) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Relay model auto-detection: POST /api/detect-relay-models
+// ---------------------------------------------------------------------------
+
+/**
+ * Normalize a model name for fuzzy matching.
+ * e.g. "anthropic/claude-sonnet-4.6@20260315" → "claude-sonnet-4-6"
+ */
+function normalizeModelName(name) {
+  let n = name.toLowerCase().trim();
+  // Strip provider prefix (everything before first /)
+  const slashIdx = n.indexOf("/");
+  if (slashIdx > 0) n = n.slice(slashIdx + 1);
+  // Strip @date suffix
+  n = n.replace(/@\d+$/, "");
+  // Dots to dashes for version comparison
+  n = n.replace(/\./g, "-");
+  return n;
+}
+
+/**
+ * Match relay model IDs against known model IDs using fuzzy normalization.
+ * Returns { matched: { knownId: relayId }, unmatched: [relayIds] }
+ */
+function matchRelayModels(relayModelIds, knownModels) {
+  // Build lookup: normalized → knownModel.id
+  const knownLookup = new Map();
+  for (const m of knownModels) {
+    const id = m.id || m;
+    knownLookup.set(normalizeModelName(id), id);
+  }
+
+  const matched = {};
+  const matchedRelay = new Set();
+
+  for (const relayId of relayModelIds) {
+    const normalized = normalizeModelName(relayId);
+    if (knownLookup.has(normalized)) {
+      const knownId = knownLookup.get(normalized);
+      if (!matched[knownId]) {
+        matched[knownId] = relayId;
+        matchedRelay.add(relayId);
+      }
+    }
+  }
+
+  const unmatched = relayModelIds.filter((id) => !matchedRelay.has(id));
+  return { matched, unmatched };
+}
+
+/**
+ * POST /api/detect-relay-models
+ * Fetches model list from a relay's /models endpoint and matches against known models.
+ * Body: { providerId: string, baseUrl: string, apiKey: string }
+ */
+function handleApiDetectRelayModels(req, res) {
+  if (req.method !== "POST") {
+    res.writeHead(405, SECURITY_HEADERS);
+    res.end();
+    return;
+  }
+
+  readBody(req, res, (body) => {
+    try {
+      const parsed = JSON.parse(body);
+      const providerId = parsed.providerId;
+      const baseUrl = parsed.baseUrl;
+      // Use provided key, or fall back to saved key from user config
+      let apiKey = parsed.apiKey;
+      if (!apiKey) {
+        const configPath = path.join(DATA_DIR, ".openclaw", "openclaw.json");
+        try {
+          const cfg = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+          apiKey = cfg[providerId]?.apiKey;
+        } catch { /* ok */ }
+      }
+      if (!baseUrl || !apiKey) {
+        jsonResponse(res, 200, { success: false, error: "缺少 baseUrl 或 apiKey" });
+        return;
+      }
+
+      // Resolve the OpenClaw provider key for model lookup
+      const openclawKey = OPENCLAW_PROVIDER[providerId] || providerId;
+      const providerCfg = SHARED_CONFIG[openclawKey];
+      if (!providerCfg?.models) {
+        jsonResponse(res, 200, { success: false, error: `未知 provider: ${providerId}` });
+        return;
+      }
+
+      // Build the /models URL — try baseUrl/models first
+      let modelsUrl = baseUrl.replace(/\/+$/, "");
+      if (!modelsUrl.endsWith("/models")) {
+        modelsUrl += "/models";
+      }
+
+      const urlObj = new URL(modelsUrl);
+      const httpMod = urlObj.protocol === "https:" ? require("https") : require("http");
+
+      const options = {
+        hostname: urlObj.hostname,
+        port: urlObj.port || (urlObj.protocol === "https:" ? 443 : 80),
+        path: urlObj.pathname + (urlObj.search || ""),
+        method: "GET",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        timeout: 10000,
+      };
+
+      const apiReq = httpMod.request(options, (apiRes) => {
+        let data = "";
+        apiRes.on("data", (chunk) => { data += chunk; });
+        apiRes.on("end", () => {
+          try {
+            const json = JSON.parse(data);
+            // OpenAI-compatible format: { data: [{ id: "model-name", ... }] }
+            const models = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
+            const relayModelIds = models.map((m) => m.id).filter(Boolean);
+
+            if (relayModelIds.length === 0) {
+              jsonResponse(res, 200, { success: false, error: "中转站返回空模型列表" });
+              return;
+            }
+
+            const { matched, unmatched } = matchRelayModels(relayModelIds, providerCfg.models);
+            jsonResponse(res, 200, {
+              success: true,
+              matched,
+              matchCount: Object.keys(matched).length,
+              totalRelay: relayModelIds.length,
+              unmatched: unmatched.slice(0, 20), // Limit for readability
+            });
+          } catch {
+            jsonResponse(res, 200, {
+              success: false,
+              error: `中转站返回格式异常: ${data.slice(0, 200)}`,
+            });
+          }
+        });
+      });
+
+      apiReq.on("error", (e) => {
+        jsonResponse(res, 200, { success: false, error: `连接中转站失败: ${e.message}` });
+      });
+      apiReq.on("timeout", () => {
+        apiReq.destroy();
+        jsonResponse(res, 200, { success: false, error: "中转站连接超时 (10s)" });
+      });
+      apiReq.end();
+    } catch (e) {
+      jsonResponse(res, 400, { error: `Invalid request: ${e.message}` });
+    }
+  });
+}
+
 /**
  * Diagnostic endpoint: GET /api/debug-config
  * Returns the actual internal openclaw.json that the gateway reads,
@@ -1034,6 +1202,7 @@ const server = http.createServer((req, res) => {
   if (pathname === "/api/config") return handleApiConfig(req, res);
   if (pathname === "/api/validate-key") return handleApiValidateKey(req, res);
   if (pathname === "/api/test-chat") return handleApiTestChat(req, res);
+  if (pathname === "/api/detect-relay-models") return handleApiDetectRelayModels(req, res);
   if (pathname === "/api/debug-config") return handleApiDebugConfig(req, res);
   if (pathname === "/api/version") return handleApiVersion(res);
   if (pathname === "/api/openclaw-version") return handleApiOpenclawVersion(res);

@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.36] - 2026-04-02
+
+### Added
+
+- **中转站模型自动识别**: 保存 API 地址后自动调用中转站 `/models` 接口，模糊匹配模型名（处理前缀差异如 `anthropic/claude-sonnet-4.6` → `claude-sonnet-4-6`），缓存到本地 `relayModelMap`
+- **中转站 API 格式自动切换**: 使用中转站时自动从 anthropic-messages/google-generative-ai 切换为 openai-completions（中转站统一使用 OpenAI 兼容格式）
+
+### Fixed
+
+- **Kimi K2.5 session 污染**: 切换模型时自动创建新 session，防止 Kimi thinking 模式失败后 session tree 损坏导致后续所有模型无法对话
+
 ## [1.2.35] - 2026-04-02
 
 ### Fixed
