@@ -1048,6 +1048,43 @@ function handleApiDebugConfig(_req, res) {
 }
 
 /**
+ * Diagnostic endpoint: GET /api/debug-log?lines=100&filter=chat
+ * Returns the tail of the OpenClaw detailed log file (/tmp/openclaw/).
+ * Optional query params: lines (default 200), filter (grep keyword).
+ */
+function handleApiDebugLog(req, res) {
+  const url = new URL(req.url || "/", `http://localhost:${UI_PORT}`);
+  const lines = Math.min(parseInt(url.searchParams.get("lines") || "200", 10), 2000);
+  const filter = url.searchParams.get("filter") || "";
+
+  // Find today's OpenClaw log
+  const today = new Date().toISOString().slice(0, 10);
+  const logPath = `/tmp/openclaw/openclaw-${today}.log`;
+  const altLogPath = path.join(DATA_DIR, "pocketclaw.log");
+
+  let targetPath = logPath;
+  if (!fs.existsSync(logPath)) targetPath = altLogPath;
+
+  try {
+    const content = fs.readFileSync(targetPath, "utf-8");
+    let allLines = content.split("\n");
+    if (filter) {
+      allLines = allLines.filter((l) => l.toLowerCase().includes(filter.toLowerCase()));
+    }
+    const tail = allLines.slice(-lines);
+    jsonResponse(res, 200, {
+      logFile: targetPath,
+      totalLines: allLines.length,
+      returnedLines: tail.length,
+      filter: filter || null,
+      lines: tail,
+    });
+  } catch (e) {
+    jsonResponse(res, 200, { error: `日志文件不可读: ${e.message}`, path: targetPath });
+  }
+}
+
+/**
  * Diagnostic endpoint: POST /api/test-chat
  * Bypasses OpenClaw and makes a direct chat completions call to the provider API.
  * Used to verify that the Kimi (moonshot) API is reachable and responding correctly.
@@ -1204,6 +1241,7 @@ const server = http.createServer((req, res) => {
   if (pathname === "/api/test-chat") return handleApiTestChat(req, res);
   if (pathname === "/api/detect-relay-models") return handleApiDetectRelayModels(req, res);
   if (pathname === "/api/debug-config") return handleApiDebugConfig(req, res);
+  if (pathname === "/api/debug-log") return handleApiDebugLog(req, res);
   if (pathname === "/api/version") return handleApiVersion(res);
   if (pathname === "/api/openclaw-version") return handleApiOpenclawVersion(res);
   if (pathname === "/api/health") return handleApiHealth(res);
@@ -1289,6 +1327,19 @@ if (process.argv.includes("--supervisor")) {
   if (Object.keys(config).length > 0) {
     syncAuthProfiles(config);
   }
+
+  // Clear old sessions on every startup. PocketClaw is a consumer product where
+  // session persistence across restarts is not expected. Stale sessions cause:
+  // - Cached thinkingLevel overrides thinkingDefault → Kimi K2.5 silent failure
+  // - Orphaned messages from failed runs → session tree corruption → all models hang
+  const sessionsDir = path.join(DATA_DIR, ".openclaw", ".openclaw", "agents", "main", "sessions");
+  try {
+    if (fs.existsSync(sessionsDir)) {
+      fs.rmSync(sessionsDir, { recursive: true, force: true });
+      log("已清理旧会话缓存");
+    }
+  } catch { /* ok */ }
+
   log("配置同步完成");
 
   // 2. Find OpenClaw
@@ -1325,6 +1376,9 @@ if (process.argv.includes("--supervisor")) {
         OPENCLAW_SKIP_BROWSER_CONTROL_SERVER: "1",
         OPENCLAW_DISABLE_BONJOUR: "1",
         OPENCLAW_SKIP_CANVAS_HOST: "1",
+        // Enable verbose logging — default INFO hides all chat/agent processing.
+        // DEBUG captures chat.send handling, model resolution, API calls, thinking mode.
+        MIN_LOG_LEVEL: "2",
       },
     },
   );

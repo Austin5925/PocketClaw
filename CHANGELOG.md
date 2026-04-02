@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.37] - 2026-04-02
+
+### Fixed
+
+- **Kimi/模型切换后全部卡死**: 启动时清理旧 session 缓存，消除 thinkingLevel 缓存覆盖和 session tree 污染
+- **验证逻辑适配中转站**: 有自定义 API 地址时，"验证"按钮改用中转站模型检测（而非官方端点），成功时自动保存模型映射
+- **Base URL 提示**: 增加"通常以 /v1 结尾"提示，减少用户填写错误
+
+### Added
+
+- **DEBUG 日志级别**: 启用详细日志记录 chat.send 处理流程，便于排查模型通信问题
+- **日志查看端点**: `/api/debug-log` 可远程查�� OpenClaw 详细日志
+
 ## [1.2.36] - 2026-04-02
 
 ### Added
