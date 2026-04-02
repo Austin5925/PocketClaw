@@ -1359,7 +1359,7 @@ if (process.argv.includes("--supervisor")) {
   log("正在启动 AI 引擎...");
   let gatewayProcess = spawn(
     process.execPath,
-    [openclawEntry, "gateway", "--port", String(GATEWAY_PORT), "--allow-unconfigured"],
+    [openclawEntry, "gateway", "--port", String(GATEWAY_PORT), "--allow-unconfigured", "--verbose"],
     {
       cwd: BASE_DIR,
       stdio: ["ignore", "pipe", "pipe"],
@@ -1378,7 +1378,7 @@ if (process.argv.includes("--supervisor")) {
         OPENCLAW_SKIP_CANVAS_HOST: "1",
         // Enable verbose logging — default INFO hides all chat/agent processing.
         // DEBUG captures chat.send handling, model resolution, API calls, thinking mode.
-        MIN_LOG_LEVEL: "2",
+        OPENCLAW_LOG_LEVEL: "debug",
       },
     },
   );
@@ -1404,7 +1404,7 @@ if (process.argv.includes("--supervisor")) {
       log("[gateway] 模型已切换，正在重启 AI 引擎...");
       const newGw = spawn(
         process.execPath,
-        [openclawEntry, "gateway", "--port", String(GATEWAY_PORT), "--allow-unconfigured"],
+        [openclawEntry, "gateway", "--port", String(GATEWAY_PORT), "--allow-unconfigured", "--verbose"],
         { cwd: BASE_DIR, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, OPENCLAW_HOME: path.join(DATA_DIR, ".openclaw") } },
       );
       newGw.stdout.on("data", (chunk) => logStream.write(chunk));
