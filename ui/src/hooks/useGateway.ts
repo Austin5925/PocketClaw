@@ -419,24 +419,29 @@ export function useGateway(): UseGatewayReturn {
     if (sendTimeoutRef.current) {
       clearTimeout(sendTimeoutRef.current);
     }
-    // 60s timeout: if no delta arrives, clear pending and show error
+    // 120s timeout: if no delta arrives, abort the backend run and show error.
+    // Must call chat.abort to cleanly cancel the run — otherwise the orphaned
+    // user message corrupts the session tree (Kimi thinking can take 30-60s).
     sendTimeoutRef.current = setTimeout(() => {
       sendTimeoutRef.current = null;
       if (runIdToMsgId.current.size === 0) {
-        // No response started — add a timeout error message
+        // Abort backend run to prevent orphaned user messages
+        sendRpcRef.current("chat.abort", {
+          sessionKey: sessionKeyRef.current,
+        });
         setMessages((prev) => [
           ...prev,
           {
             id: makeId(),
             role: "system",
-            content: "请求超时，请重试",
+            content: "请求超时，AI 未响应。请重试，或切换其他模型。",
             timestamp: Date.now(),
             pending: false,
           },
         ]);
         setPending(false);
       }
-    }, 60000);
+    }, 120000);
     // Assistant bubble is created when first delta event arrives (gateway-driven)
     sendRpcRef.current("chat.send", {
       sessionKey: sessionKeyRef.current,
@@ -462,19 +467,22 @@ export function useGateway(): UseGatewayReturn {
     sendTimeoutRef.current = setTimeout(() => {
       sendTimeoutRef.current = null;
       if (runIdToMsgId.current.size === 0) {
+        sendRpcRef.current("chat.abort", {
+          sessionKey: sessionKeyRef.current,
+        });
         setMessages((prev) => [
           ...prev,
           {
             id: makeId(),
             role: "system",
-            content: "请求超时，请重试",
+            content: "请求超时，AI 未响应。请重试，或切换其他模型。",
             timestamp: Date.now(),
             pending: false,
           },
         ]);
         setPending(false);
       }
-    }, 60000);
+    }, 120000);
     sendRpcRef.current("chat.send", {
       sessionKey: sessionKeyRef.current,
       message: lastUserMsg,

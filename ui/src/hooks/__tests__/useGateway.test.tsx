@@ -209,7 +209,7 @@ describe("useGateway", () => {
     expect(result.current.pending).toBe(false);
   });
 
-  it("shows timeout error after 60s with no delta response", () => {
+  it("shows timeout error after 120s with no delta response", () => {
     const { result } = renderHook(() => useGateway(), { wrapper: Wrapper });
 
     const ws = getLatestWs();
@@ -224,16 +224,16 @@ describe("useGateway", () => {
     expect(result.current.pending).toBe(true);
     expect(result.current.messages).toHaveLength(1);
 
-    // Advance timers by 60s without any delta arriving
+    // Advance timers by 120s without any delta arriving
     act(() => {
-      vi.advanceTimersByTime(60000);
+      vi.advanceTimersByTime(120000);
     });
 
     // Timeout should have fired — pending cleared, error message added
     expect(result.current.pending).toBe(false);
     const lastMsg = result.current.messages[result.current.messages.length - 1];
     expect(lastMsg?.role).toBe("system");
-    expect(lastMsg?.content).toBe("请求超时，请重试");
+    expect(lastMsg?.content).toBe("请求超时，AI 未响应。请重试，或切换其他模型。");
   });
 
   it("ignores empty messages", () => {
