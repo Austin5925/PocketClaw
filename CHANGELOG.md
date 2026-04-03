@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.38] - 2026-04-03
+
+### Fixed
+
+- **Windows 更新后启动慢 (P0)**: gateway env vars (禁用 canvas/browser/bonjour) 之前只在初始 spawn 的 env 参数中设置，未写入 process.env。Windows 模型切换重启和更新后重启使用 `{...process.env}` 继承环境变量，导致丢失所有禁用标志 → canvas/browser 意外启用 → 启动变慢。修复：在 spawn 前将所有 gateway env vars 写入 process.env
+- **Windows 更新期间 gateway 冲突**: 更新解压前先 kill gateway 进程，防止文件替换期间产生冲突进程
+
 ## [1.2.37] - 2026-04-02
 
 ### Fixed

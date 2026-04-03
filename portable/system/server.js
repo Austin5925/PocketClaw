@@ -1366,6 +1366,16 @@ if (process.argv.includes("--supervisor")) {
     process.env.HTTP_PROXY = config.proxy.httpsProxy;
   }
 
+  // Set gateway env vars on process.env so ALL child processes inherit them —
+  // including Windows model-switch restarts which use { ...process.env }.
+  // Previously these were only in the initial spawn's env option, causing any
+  // gateway restart on Windows to lose the disable flags → canvas/browser enabled → slow.
+  process.env.OPENCLAW_HOME = path.join(DATA_DIR, ".openclaw");
+  process.env.OPENCLAW_SKIP_BROWSER_CONTROL_SERVER = "1";
+  process.env.OPENCLAW_DISABLE_BONJOUR = "1";
+  process.env.OPENCLAW_SKIP_CANVAS_HOST = "1";
+  process.env.OPENCLAW_LOG_LEVEL = "debug";
+
   // 3. Start gateway
   log("正在启动 AI 引擎...");
   let gatewayProcess = spawn(
@@ -1374,23 +1384,7 @@ if (process.argv.includes("--supervisor")) {
     {
       cwd: BASE_DIR,
       stdio: ["ignore", "pipe", "pipe"],
-      env: {
-        ...process.env,
-        OPENCLAW_HOME: path.join(DATA_DIR, ".openclaw"),
-        // Pass through proxy settings so OpenClaw can reach overseas APIs
-        // Proxy passthrough
-        ...(process.env.HTTPS_PROXY ? { HTTPS_PROXY: process.env.HTTPS_PROXY } : {}),
-        ...(process.env.HTTP_PROXY ? { HTTP_PROXY: process.env.HTTP_PROXY } : {}),
-        ...(process.env.ALL_PROXY ? { ALL_PROXY: process.env.ALL_PROXY } : {}),
-        ...(process.env.NO_PROXY ? { NO_PROXY: process.env.NO_PROXY } : {}),
-        // Disable non-consumer features via env vars (NOT config file — Zod strict rejects unknown keys)
-        OPENCLAW_SKIP_BROWSER_CONTROL_SERVER: "1",
-        OPENCLAW_DISABLE_BONJOUR: "1",
-        OPENCLAW_SKIP_CANVAS_HOST: "1",
-        // Enable verbose logging — default INFO hides all chat/agent processing.
-        // DEBUG captures chat.send handling, model resolution, API calls, thinking mode.
-        OPENCLAW_LOG_LEVEL: "debug",
-      },
+      env: { ...process.env },
     },
   );
   // Write gateway output to log file for diagnostics
@@ -1421,7 +1415,7 @@ if (process.argv.includes("--supervisor")) {
       const newGw = spawn(
         process.execPath,
         [openclawEntry, "gateway", "--port", String(GATEWAY_PORT), "--allow-unconfigured", "--verbose"],
-        { cwd: BASE_DIR, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, OPENCLAW_HOME: path.join(DATA_DIR, ".openclaw") } },
+        { cwd: BASE_DIR, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env } },
       );
       newGw.stdout.on("data", (chunk) => logStream.write(chunk));
       newGw.stderr.on("data", (chunk) => logStream.write(chunk));
