@@ -610,6 +610,17 @@ async function startUpdate() {
     updateState.status = "extracting";
     updateState.progress = 70;
 
+    // On Windows, kill the gateway BEFORE extraction. Windows locks files held by
+    // running processes — extracting over a live OpenClaw overwrites partial files,
+    // causing OpenClaw to detect changes and self-restart as a rogue process WITHOUT
+    // our env vars (no disable flags). Unix doesn't have this issue because overwriting
+    // a running file just unlinks the old inode; the process keeps using it until exit.
+    if (process.platform === "win32" && gatewayChildProcess && !gatewayChildProcess.killed) {
+      try { gatewayChildProcess.kill(); } catch { /* ok */ }
+      // Give it a moment to release file locks
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+
     // 4. Extract — use tar (built-in since Windows 10 1803, 5-10x faster than PowerShell Expand-Archive)
     if (process.platform === "win32") {
       try {
@@ -1398,6 +1409,11 @@ if (process.argv.includes("--supervisor")) {
   process.on("SIGTERM", () => { cleanup(); process.exit(0); });
 
   gatewayProcess.on("exit", (code) => {
+    // During update extraction, we intentionally kill the gateway to release
+    // Windows file locks. Don't crash or restart — update will prompt user to restart.
+    if (updateState.status === "extracting" || updateState.status === "migrating" || updateState.status === "complete") {
+      return;
+    }
     if (gatewayRestarting) {
       // Windows model-switch restart: re-spawn the gateway
       gatewayRestarting = false;
