@@ -72,7 +72,9 @@ func main() {
 	}
 
 	os.Setenv("PATH", filepath.Dir(nodeBin)+string(os.PathListSeparator)+os.Getenv("PATH"))
-	os.Setenv("OPENCLAW_HOME", filepath.Join(baseDir, "data", ".openclaw"))
+	openclawHome := filepath.Join(baseDir, "data", ".openclaw")
+	os.Setenv("OPENCLAW_HOME", openclawHome)
+	os.Setenv("OPENCLAW_STATE_DIR", openclawHome)
 
 	logMsg("正在同步配置...")
 	syncConfigToOpenClaw()
@@ -85,7 +87,8 @@ func main() {
 	gatewayCmd.Stderr = logFile
 	// Disable non-consumer features via env vars (NOT config file — Zod strict rejects unknown keys)
 	gatewayCmd.Env = append(os.Environ(),
-		"OPENCLAW_HOME="+filepath.Join(baseDir, "data", ".openclaw"),
+		"OPENCLAW_HOME="+openclawHome,
+		"OPENCLAW_STATE_DIR="+openclawHome,
 		"OPENCLAW_SKIP_BROWSER_CONTROL_SERVER=1",
 		"OPENCLAW_DISABLE_BONJOUR=1",
 		"OPENCLAW_SKIP_CANVAS_HOST=1",
@@ -185,7 +188,8 @@ func main() {
 			gatewayCmd.Stdout = logFile
 			gatewayCmd.Stderr = logFile
 			gatewayCmd.Env = append(os.Environ(),
-				"OPENCLAW_HOME="+filepath.Join(baseDir, "data", ".openclaw"),
+				"OPENCLAW_HOME="+openclawHome,
+				"OPENCLAW_STATE_DIR="+openclawHome,
 				"OPENCLAW_SKIP_BROWSER_CONTROL_SERVER=1",
 				"OPENCLAW_DISABLE_BONJOUR=1",
 				"OPENCLAW_SKIP_CANVAS_HOST=1",

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.40] - 2026-04-11
+
+### Fixed
+
+- **微信插件找不到账号文件 (P0)**: 插件通过 `OPENCLAW_STATE_DIR` 解析状态目录，但 PocketClaw 只设了 `OPENCLAW_HOME`，导致插件默认读取 `~/.openclaw/`（用户主目录）而非 U 盘的 `data/.openclaw/`。修复：在 Go 启动器和 server.js supervisor 中均设置 `OPENCLAW_STATE_DIR=$OPENCLAW_HOME`
+- **iLink IDC 重定向未处理**: 扫码过程中 iLink 可能返回 `scaned_but_redirect` 状态要求切换轮询主机。修复：在 QR session 中跟踪 `currentApiHost`，收到重定向时自动切换
+
 ## [1.2.39] - 2026-04-10
 
 ### Added

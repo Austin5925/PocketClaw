@@ -43,7 +43,7 @@ const KNOWN_PROVIDERS = SHARED_CONFIG.providers.map((p) => p.id);
 // ── WeChat QR login ─────────────────────────────────────────────────────
 const ILINK_BASE = "ilinkai.weixin.qq.com";
 const QR_SESSION_TTL_MS = 5 * 60_000; // 5 minutes
-// In-memory QR login sessions: sessionKey → { qrcode, qrcodeContent, startedAt }
+// In-memory QR login sessions: sessionKey → { qrcode, qrcodeContent, startedAt, currentApiHost }
 const activeQrSessions = new Map();
 
 // ── PocketClaw AGENTS.md ────────────────────────────────────────────────
@@ -424,6 +424,7 @@ function handleApiWeixinQrStart(req, res) {
           qrcode: data.qrcode,
           qrcodeContent: data.qrcode_img_content,
           startedAt: Date.now(),
+          currentApiHost: ILINK_BASE,
         });
         jsonResponse(res, 200, {
           sessionKey,
@@ -543,7 +544,7 @@ function handleApiWeixinQrPoll(req, res) {
 
     const https = require("https");
     const options = {
-      hostname: ILINK_BASE,
+      hostname: session.currentApiHost,
       path: `/ilink/bot/get_qrcode_status?qrcode=${encodeURIComponent(session.qrcode)}`,
       method: "GET",
       headers: { "iLink-App-ClientVersion": "1" },
@@ -575,6 +576,15 @@ function handleApiWeixinQrPoll(req, res) {
           if (status === "expired") {
             activeQrSessions.delete(parsed.sessionKey);
             jsonResponse(res, 200, { status: "expired" });
+            return;
+          }
+
+          if (status === "scaned_but_redirect") {
+            // iLink IDC redirect: switch polling to new host
+            if (data.redirect_host) {
+              session.currentApiHost = data.redirect_host;
+            }
+            jsonResponse(res, 200, { status: "wait" });
             return;
           }
 
@@ -1584,6 +1594,7 @@ if (process.argv.includes("--supervisor")) {
   } catch { /* first run, no config yet */ }
 
   process.env.OPENCLAW_HOME = path.join(DATA_DIR, ".openclaw");
+  process.env.OPENCLAW_STATE_DIR = path.join(DATA_DIR, ".openclaw");
   process.env.PATH = path.join(BASE_DIR, "app", "runtime", "node-win-x64") +
     path.delimiter + process.env.PATH;
 
@@ -1629,6 +1640,7 @@ if (process.argv.includes("--supervisor")) {
   // Previously these were only in the initial spawn's env option, causing any
   // gateway restart on Windows to lose the disable flags → canvas/browser enabled → slow.
   process.env.OPENCLAW_HOME = path.join(DATA_DIR, ".openclaw");
+  process.env.OPENCLAW_STATE_DIR = path.join(DATA_DIR, ".openclaw");
   process.env.OPENCLAW_SKIP_BROWSER_CONTROL_SERVER = "1";
   process.env.OPENCLAW_DISABLE_BONJOUR = "1";
   process.env.OPENCLAW_SKIP_CANVAS_HOST = "1";
