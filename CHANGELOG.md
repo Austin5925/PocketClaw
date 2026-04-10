@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.41] - 2026-04-11
+
+### Fixed
+
+- **OpenClaw 启动崩溃 (P0)**: OpenClaw 直接读取 `$OPENCLAW_HOME/openclaw.json`（PocketClaw 用户配置文件），其中的 `agent.model` 键被 Zod strict 校验拒绝（已迁移为 `agents.defaults.model`）。修复：Go 启动器和 server.js 在同步后从用户配置中删除 `agent` 键；GET API 从内部配置重建 `agent.model` 以保持前端兼容性
+
 ## [1.2.40] - 2026-04-11
 
 ### Fixed

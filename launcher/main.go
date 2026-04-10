@@ -394,7 +394,9 @@ func syncConfigToOpenClaw() {
 
 	internalConfig["gateway"] = gw
 
-	// Sync agent model (OpenClaw uses agents.defaults.model, not agent.model)
+	// Sync agent model (OpenClaw uses agents.defaults.model, not agent.model).
+	// Strip legacy "agent" key from user config — OpenClaw reads this file directly
+	// and Zod strict validation rejects agent.model.
 	if agent, ok := ourConfig["agent"].(map[string]interface{}); ok {
 		if model, ok := agent["model"].(string); ok && model != "" {
 			agents, _ := internalConfig["agents"].(map[string]interface{})
@@ -409,6 +411,9 @@ func syncConfigToOpenClaw() {
 			agents["defaults"] = defaults
 			internalConfig["agents"] = agents
 		}
+		delete(ourConfig, "agent")
+		cleaned, _ := json.MarshalIndent(ourConfig, "", "  ")
+		os.WriteFile(ourConfigPath, cleaned, 0600)
 	}
 
 	// Explicitly set workspace path so OpenClaw finds ClawHub skills.
