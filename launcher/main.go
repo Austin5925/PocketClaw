@@ -72,9 +72,7 @@ func main() {
 	}
 
 	os.Setenv("PATH", filepath.Dir(nodeBin)+string(os.PathListSeparator)+os.Getenv("PATH"))
-	openclawHome := filepath.Join(baseDir, "data", ".openclaw")
-	os.Setenv("OPENCLAW_HOME", openclawHome)
-	os.Setenv("OPENCLAW_STATE_DIR", openclawHome)
+	os.Setenv("OPENCLAW_HOME", filepath.Join(baseDir, "data", ".openclaw"))
 
 	logMsg("正在同步配置...")
 	syncConfigToOpenClaw()
@@ -86,9 +84,11 @@ func main() {
 	gatewayCmd.Stdout = logFile
 	gatewayCmd.Stderr = logFile
 	// Disable non-consumer features via env vars (NOT config file — Zod strict rejects unknown keys)
+	openclawHome := filepath.Join(baseDir, "data", ".openclaw")
+	openclawStateDir := filepath.Join(openclawHome, ".openclaw")
 	gatewayCmd.Env = append(os.Environ(),
 		"OPENCLAW_HOME="+openclawHome,
-		"OPENCLAW_STATE_DIR="+openclawHome,
+		"OPENCLAW_STATE_DIR="+openclawStateDir,
 		"OPENCLAW_SKIP_BROWSER_CONTROL_SERVER=1",
 		"OPENCLAW_DISABLE_BONJOUR=1",
 		"OPENCLAW_SKIP_CANVAS_HOST=1",
@@ -189,7 +189,7 @@ func main() {
 			gatewayCmd.Stderr = logFile
 			gatewayCmd.Env = append(os.Environ(),
 				"OPENCLAW_HOME="+openclawHome,
-				"OPENCLAW_STATE_DIR="+openclawHome,
+				"OPENCLAW_STATE_DIR="+openclawStateDir,
 				"OPENCLAW_SKIP_BROWSER_CONTROL_SERVER=1",
 				"OPENCLAW_DISABLE_BONJOUR=1",
 				"OPENCLAW_SKIP_CANVAS_HOST=1",
@@ -394,9 +394,7 @@ func syncConfigToOpenClaw() {
 
 	internalConfig["gateway"] = gw
 
-	// Sync agent model (OpenClaw uses agents.defaults.model, not agent.model).
-	// Strip legacy "agent" key from user config — OpenClaw reads this file directly
-	// and Zod strict validation rejects agent.model.
+	// Sync agent model (OpenClaw uses agents.defaults.model, not agent.model)
 	if agent, ok := ourConfig["agent"].(map[string]interface{}); ok {
 		if model, ok := agent["model"].(string); ok && model != "" {
 			agents, _ := internalConfig["agents"].(map[string]interface{})
@@ -411,9 +409,6 @@ func syncConfigToOpenClaw() {
 			agents["defaults"] = defaults
 			internalConfig["agents"] = agents
 		}
-		delete(ourConfig, "agent")
-		cleaned, _ := json.MarshalIndent(ourConfig, "", "  ")
-		os.WriteFile(ourConfigPath, cleaned, 0600)
 	}
 
 	// Explicitly set workspace path so OpenClaw finds ClawHub skills.

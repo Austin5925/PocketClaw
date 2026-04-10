@@ -2,18 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.2.41] - 2026-04-11
+## [1.2.42] - 2026-04-11
 
 ### Fixed
 
-- **OpenClaw 启动崩溃 (P0)**: OpenClaw 直接读取 `$OPENCLAW_HOME/openclaw.json`（PocketClaw 用户配置文件），其中的 `agent.model` 键被 Zod strict 校验拒绝（已迁移为 `agents.defaults.model`）。修复：Go 启动器和 server.js 在同步后从用户配置中删除 `agent` 键；GET API 从内部配置重建 `agent.model` 以保持前端兼容性
-
-## [1.2.40] - 2026-04-11
-
-### Fixed
-
-- **微信插件找不到账号文件 (P0)**: 插件通过 `OPENCLAW_STATE_DIR` 解析状态目录，但 PocketClaw 只设了 `OPENCLAW_HOME`，导致插件默认读取 `~/.openclaw/`（用户主目录）而非 U 盘的 `data/.openclaw/`。修复：在 Go 启动器和 server.js supervisor 中均设置 `OPENCLAW_STATE_DIR=$OPENCLAW_HOME`
-- **iLink IDC 重定向未处理**: 扫码过程中 iLink 可能返回 `scaned_but_redirect` 状态要求切换轮询主机。修复：在 QR session 中跟踪 `currentApiHost`，收到重定向时自动切换
+- **回退 v1.2.40/v1.2.41 的启动崩溃**: 根因：`OPENCLAW_STATE_DIR=$OPENCLAW_HOME` 导致 OpenClaw 对用户配置执行 Zod strict 校验。修复：改为 `OPENCLAW_STATE_DIR=$OPENCLAW_HOME/.openclaw`
+- **Go 启动器 gateway 重启**: gateway 配置变更后正常退出时自动重新拉起（最多 5 次）
+- **iLink IDC 重定向**: QR 轮询中处理 `scaned_but_redirect` 状态切换主机
+- **微信账号存储路径**: 写入 `$OPENCLAW_STATE_DIR/openclaw-weixin/`，与插件读取路径一致
 
 ## [1.2.39] - 2026-04-10
 

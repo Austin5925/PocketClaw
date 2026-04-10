@@ -160,7 +160,7 @@ const CONFIG_KEY_FOR_PROVIDER = Object.fromEntries(
  * as belt-and-suspenders. Provider entries must be COMPLETE (baseUrl, api, models)
  * to pass Zod strict validation.
  */
-function syncInternalConfig(config, { updateModel = false, model = undefined } = {}) {
+function syncInternalConfig(config, { updateModel = false } = {}) {
   const internalDir = path.join(DATA_DIR, ".openclaw", ".openclaw");
   const internalPath = path.join(internalDir, "openclaw.json");
 
@@ -197,9 +197,9 @@ function syncInternalConfig(config, { updateModel = false, model = undefined } =
   if (!internal.agents) internal.agents = {};
   if (!internal.agents.defaults) internal.agents.defaults = {};
   if (updateModel) {
-    const effectiveModel = model || config.agent?.model;
-    if (effectiveModel) {
-      internal.agents.defaults.model = effectiveModel;
+    const model = config.agent?.model;
+    if (model) {
+      internal.agents.defaults.model = model;
     }
   }
   if (!internal.agents.defaults.model) {
@@ -460,7 +460,8 @@ function normalizeWeixinAccountId(raw) {
  * then updates user config and triggers gateway restart.
  */
 function saveWeixinAccount(data) {
-  const stateDir = path.join(DATA_DIR, ".openclaw");
+  // Plugin resolves state dir via OPENCLAW_STATE_DIR → $OPENCLAW_HOME/.openclaw
+  const stateDir = path.join(DATA_DIR, ".openclaw", ".openclaw");
   const normalizedId = normalizeWeixinAccountId(data.ilink_bot_id);
 
   // 1. Save account data
@@ -500,7 +501,7 @@ function saveWeixinAccount(data) {
   }
 
   // 4. Enable channel in user config + trigger gateway restart
-  const configPath = path.join(stateDir, "openclaw.json");
+  const configPath = path.join(DATA_DIR, ".openclaw", "openclaw.json");
   let userConfig = {};
   try { userConfig = JSON.parse(fs.readFileSync(configPath, "utf-8")); } catch { /* ok */ }
   if (!userConfig.channels) userConfig.channels = {};
@@ -617,16 +618,6 @@ function handleApiConfig(req, res) {
   if (req.method === "GET") {
     try {
       const raw = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      // Reconstruct agent.model from internal config for frontend compatibility.
-      // The "agent" key is stripped from user config to avoid OpenClaw Zod strict rejection.
-      if (!raw.agent) {
-        try {
-          const internalPath = path.join(DATA_DIR, ".openclaw", ".openclaw", "openclaw.json");
-          const internal = JSON.parse(fs.readFileSync(internalPath, "utf-8"));
-          const model = internal?.agents?.defaults?.model;
-          if (model) raw.agent = { model };
-        } catch { /* internal config may not exist yet */ }
-      }
       jsonResponse(res, 200, maskApiKeys(raw));
     } catch {
       jsonResponse(res, 404, { error: "Config not found" });
@@ -655,21 +646,16 @@ function handleApiConfig(req, res) {
           }
         }
 
-        // Extract model from legacy "agent.model" before stripping it.
-        // OpenClaw reads this file ($OPENCLAW_HOME/openclaw.json) directly and
-        // Zod strict validation rejects agent.model (replaced by agents.defaults.model).
-        const agentModel = parsed.agent?.model;
-        const modelChanged = agentModel && agentModel !== existing.agent?.model;
-        delete parsed.agent;
-        // Also clean legacy agent key from existing config on disk
-        delete existing.agent;
-
         const finalBody = JSON.stringify(parsed, null, 2);
         fs.mkdirSync(path.dirname(configPath), { recursive: true, mode: 0o700 });
         fs.writeFileSync(configPath, finalBody, { encoding: "utf-8", mode: 0o600 });
 
         // Sync to OpenClaw auth store and internal config
         syncAuthProfiles(parsed);
+        // Only update the model in internal config if the user explicitly changed it.
+        // Without this check, saving an API key overwrites whatever model the user
+        // selected in the 18789 Control UI.
+        const modelChanged = parsed.agent?.model && parsed.agent.model !== existing.agent?.model;
         const channelsChanged = JSON.stringify(parsed.channels || null) !== JSON.stringify(existing.channels || null);
         // Detect baseUrl changes (relay/proxy) that require gateway restart
         const baseUrlChanged = KNOWN_PROVIDERS.some((pid) => {
@@ -677,7 +663,7 @@ function handleApiConfig(req, res) {
           const oldUrl = existing[pid]?.baseUrl;
           return newUrl !== undefined && newUrl !== oldUrl;
         });
-        syncInternalConfig(parsed, { updateModel: modelChanged, model: agentModel });
+        syncInternalConfig(parsed, { updateModel: modelChanged });
 
         // Delay restart 500ms to let chokidar complete its hot-reload cycle (300ms debounce).
         // Without this delay, the gateway restart races with hot-reload and may cache stale model.
@@ -1609,7 +1595,7 @@ if (process.argv.includes("--supervisor")) {
   } catch { /* first run, no config yet */ }
 
   process.env.OPENCLAW_HOME = path.join(DATA_DIR, ".openclaw");
-  process.env.OPENCLAW_STATE_DIR = path.join(DATA_DIR, ".openclaw");
+  process.env.OPENCLAW_STATE_DIR = path.join(DATA_DIR, ".openclaw", ".openclaw");
   process.env.PATH = path.join(BASE_DIR, "app", "runtime", "node-win-x64") +
     path.delimiter + process.env.PATH;
 
@@ -1618,16 +1604,7 @@ if (process.argv.includes("--supervisor")) {
   // written, causing the gateway to reject UI WebSocket connections on fresh installs.
   // On startup, set model from user config (first-time setup or config migration).
   // After startup, model changes come from 18789 Control UI and should NOT be overwritten.
-  // Extract model from legacy "agent" key, then strip it — OpenClaw reads this file
-  // directly and Zod strict validation rejects agent.model.
-  const startupModel = config.agent?.model;
-  if (config.agent) {
-    delete config.agent;
-    try {
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2), { encoding: "utf-8", mode: 0o600 });
-    } catch { /* ok */ }
-  }
-  syncInternalConfig(config, { updateModel: true, model: startupModel });
+  syncInternalConfig(config, { updateModel: true });
   if (Object.keys(config).length > 0) {
     syncAuthProfiles(config);
   }
@@ -1664,7 +1641,7 @@ if (process.argv.includes("--supervisor")) {
   // Previously these were only in the initial spawn's env option, causing any
   // gateway restart on Windows to lose the disable flags → canvas/browser enabled → slow.
   process.env.OPENCLAW_HOME = path.join(DATA_DIR, ".openclaw");
-  process.env.OPENCLAW_STATE_DIR = path.join(DATA_DIR, ".openclaw");
+  process.env.OPENCLAW_STATE_DIR = path.join(DATA_DIR, ".openclaw", ".openclaw");
   process.env.OPENCLAW_SKIP_BROWSER_CONTROL_SERVER = "1";
   process.env.OPENCLAW_DISABLE_BONJOUR = "1";
   process.env.OPENCLAW_SKIP_CANVAS_HOST = "1";
