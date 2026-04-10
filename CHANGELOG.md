@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.39] - 2026-04-10
+
+### Added
+
+- **微信扫码登录**: 在 Settings 频道接入 Tab 中直接扫码登录微信 ClawBot，无需打开 18789 控制台或命令行。完整流程：获取二维码 → 微信扫码 → 确认 → 自动保存账号 → 重启 gateway → 微信频道上线
+- **AI 助手身份提示 (AGENTS.md)**: 启动时自动写入 workspace/AGENTS.md，告知 AI 运行在便携 U 盘环境中，优先引导用户通过浏览器界面操作，减少命令行困惑
+
+### Changed
+
+- **微信频道卡片**: 移除"开发中，暂不支持"标注，替换为完整的 QR 扫码登录 UI
+
 ## [1.2.38] - 2026-04-03
 
 ### Fixed

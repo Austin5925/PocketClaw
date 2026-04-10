@@ -40,6 +40,37 @@ const SHARED_CONFIG = JSON.parse(
 );
 const KNOWN_PROVIDERS = SHARED_CONFIG.providers.map((p) => p.id);
 
+// ── WeChat QR login ─────────────────────────────────────────────────────
+const ILINK_BASE = "ilinkai.weixin.qq.com";
+const QR_SESSION_TTL_MS = 5 * 60_000; // 5 minutes
+// In-memory QR login sessions: sessionKey → { qrcode, qrcodeContent, startedAt }
+const activeQrSessions = new Map();
+
+// ── PocketClaw AGENTS.md ────────────────────────────────────────────────
+const POCKETCLAW_AGENTS_MD = `# 口袋龙虾 (PocketClaw)
+
+你是"口袋龙虾"——一个运行在便携 U 盘上的 AI 助手。
+
+## 运行环境
+
+- 你运行在用户的 U 盘上，所有程序、技能和数据都存储在 U 盘中。
+- 用户在不同电脑上插入 U 盘即可使用，无需安装任何软件。
+- Node.js 运行时和 66 个常用 AI 技能已预装在 U 盘中。
+
+## 与用户交互
+
+- 大部分用户是非技术背景的普通人，请用通俗易懂的中文交流。
+- 每一步操作都给出具体指引，不要跳过"显而易见"的步骤。
+- 如果涉及设置或配置（模型选择、API Key、频道接入等），引导用户前往 http://localhost:3210/settings 操作。
+- 如果用户需要使用高级功能或排查复杂问题，可以引导他们访问 http://localhost:18789（高级控制台）。
+
+## 关于软件和工具
+
+- U 盘中已预装了大部分常用工具和技能，在建议安装新软件前，先确认是否已有可用方案。
+- 如果确实需要用户执行终端命令（如高级排错），请说明这是进阶操作，并给出每一步的详细解释和预期结果。一般情况下，优先推荐通过浏览器界面完成操作。
+- 注意：U 盘环境是便携式的。安装到电脑本地的软件包在 U 盘移到另一台电脑后将不可用。如果需要安装，建议安装到 U 盘内的项目目录中。
+`;
+
 function serveStatic(res, filePath) {
   const ext = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES[ext] || "application/octet-stream";
@@ -195,6 +226,13 @@ function syncInternalConfig(config, { updateModel = false } = {}) {
   const workspacePath = path.join(DATA_DIR, ".openclaw", "workspace");
   internal.agents.defaults.workspace = workspacePath;
 
+  // Write AGENTS.md with PocketClaw persona if not already customized by user.
+  const agentsMdPath = path.join(workspacePath, "AGENTS.md");
+  if (!fs.existsSync(agentsMdPath)) {
+    fs.mkdirSync(workspacePath, { recursive: true });
+    fs.writeFileSync(agentsMdPath, POCKETCLAW_AGENTS_MD, { encoding: "utf-8" });
+  }
+
   // Write provider configs for all providers that have entries in shared-config.json.
   // This ensures OpenClaw knows the baseUrl/api/models for each provider.
   if (!internal.models) internal.models = {};
@@ -344,6 +382,224 @@ function maskApiKeys(obj) {
   }
   return result;
 }
+
+// ── WeChat QR Login Handlers ──────────────────────────────────────────
+
+/** Fetch a QR code from iLink for WeChat ClawBot login. */
+function handleApiWeixinQrStart(req, res) {
+  if (req.method !== "POST") {
+    res.writeHead(405, SECURITY_HEADERS);
+    res.end();
+    return;
+  }
+
+  // Purge expired sessions
+  const now = Date.now();
+  for (const [key, s] of activeQrSessions) {
+    if (now - s.startedAt > QR_SESSION_TTL_MS) activeQrSessions.delete(key);
+  }
+
+  const https = require("https");
+  const crypto = require("crypto");
+  const options = {
+    hostname: ILINK_BASE,
+    path: "/ilink/bot/get_bot_qrcode?bot_type=3",
+    method: "GET",
+    headers: { "iLink-App-ClientVersion": "1" },
+    timeout: 15000,
+  };
+
+  const iReq = https.request(options, (iRes) => {
+    let body = "";
+    iRes.on("data", (chunk) => { body += chunk; });
+    iRes.on("end", () => {
+      try {
+        const data = JSON.parse(body);
+        if (data.ret !== 0 || !data.qrcode) {
+          jsonResponse(res, 502, { error: "iLink 返回异常", detail: body });
+          return;
+        }
+        const sessionKey = crypto.randomUUID();
+        activeQrSessions.set(sessionKey, {
+          qrcode: data.qrcode,
+          qrcodeContent: data.qrcode_img_content,
+          startedAt: Date.now(),
+        });
+        jsonResponse(res, 200, {
+          sessionKey,
+          qrcodeContent: data.qrcode_img_content,
+        });
+      } catch {
+        jsonResponse(res, 502, { error: "iLink 响应解析失败" });
+      }
+    });
+  });
+  iReq.on("error", (err) => {
+    jsonResponse(res, 502, { error: "无法连接微信服务: " + err.message });
+  });
+  iReq.on("timeout", () => {
+    iReq.destroy();
+    jsonResponse(res, 504, { error: "微信服务连接超时" });
+  });
+  iReq.end();
+}
+
+/**
+ * Normalize a WeChat account ID for filesystem storage.
+ * Matches the plugin's account ID normalization: @ and . become -
+ * e.g. "b0f5860fdecb@im.bot" → "b0f5860fdecb-im-bot"
+ */
+function normalizeWeixinAccountId(raw) {
+  return String(raw).replace(/@/g, "-").replace(/\./g, "-");
+}
+
+/**
+ * Save WeChat account files after successful QR login.
+ * Writes accounts.json, accounts/{id}.json, and credentials/allowFrom.json,
+ * then updates user config and triggers gateway restart.
+ */
+function saveWeixinAccount(data) {
+  const stateDir = path.join(DATA_DIR, ".openclaw");
+  const normalizedId = normalizeWeixinAccountId(data.ilink_bot_id);
+
+  // 1. Save account data
+  const accountsDir = path.join(stateDir, "openclaw-weixin", "accounts");
+  fs.mkdirSync(accountsDir, { recursive: true });
+  const accountData = {
+    token: data.bot_token,
+    baseUrl: data.baseurl || "https://ilinkai.weixin.qq.com",
+    userId: data.ilink_user_id,
+    savedAt: new Date().toISOString(),
+  };
+  fs.writeFileSync(
+    path.join(accountsDir, `${normalizedId}.json`),
+    JSON.stringify(accountData, null, 2),
+    { encoding: "utf-8", mode: 0o600 },
+  );
+
+  // 2. Register account ID in index
+  const indexPath = path.join(stateDir, "openclaw-weixin", "accounts.json");
+  let accountIds = [];
+  try { accountIds = JSON.parse(fs.readFileSync(indexPath, "utf-8")); } catch { /* ok */ }
+  if (!accountIds.includes(normalizedId)) {
+    accountIds.push(normalizedId);
+  }
+  fs.writeFileSync(indexPath, JSON.stringify(accountIds, null, 2), { encoding: "utf-8", mode: 0o600 });
+
+  // 3. Write allowFrom credentials
+  if (data.ilink_user_id) {
+    const credDir = path.join(stateDir, "credentials");
+    fs.mkdirSync(credDir, { recursive: true });
+    const allowFromPath = path.join(credDir, `openclaw-weixin-${normalizedId}-allowFrom.json`);
+    fs.writeFileSync(
+      allowFromPath,
+      JSON.stringify({ version: 1, allowFrom: [data.ilink_user_id] }, null, 2),
+      { encoding: "utf-8", mode: 0o600 },
+    );
+  }
+
+  // 4. Enable channel in user config + trigger gateway restart
+  const configPath = path.join(stateDir, "openclaw.json");
+  let userConfig = {};
+  try { userConfig = JSON.parse(fs.readFileSync(configPath, "utf-8")); } catch { /* ok */ }
+  if (!userConfig.channels) userConfig.channels = {};
+  userConfig.channels["openclaw-weixin"] = {
+    ...userConfig.channels["openclaw-weixin"],
+    enabled: true,
+  };
+  fs.writeFileSync(configPath, JSON.stringify(userConfig, null, 2), { encoding: "utf-8", mode: 0o600 });
+  syncInternalConfig(userConfig);
+  setTimeout(() => notifyGatewayRestart(), 500);
+
+  return normalizedId;
+}
+
+/** Poll iLink for QR scan status (long-poll, up to 35s). */
+function handleApiWeixinQrPoll(req, res) {
+  if (req.method !== "POST") {
+    res.writeHead(405, SECURITY_HEADERS);
+    res.end();
+    return;
+  }
+
+  readBody(req, res, (body) => {
+    let parsed;
+    try { parsed = JSON.parse(body); } catch {
+      jsonResponse(res, 400, { error: "Invalid JSON" });
+      return;
+    }
+
+    const session = activeQrSessions.get(parsed.sessionKey);
+    if (!session) {
+      jsonResponse(res, 404, { error: "会话不存在或已过期" });
+      return;
+    }
+    // Check TTL
+    if (Date.now() - session.startedAt > QR_SESSION_TTL_MS) {
+      activeQrSessions.delete(parsed.sessionKey);
+      jsonResponse(res, 200, { status: "expired" });
+      return;
+    }
+
+    const https = require("https");
+    const options = {
+      hostname: ILINK_BASE,
+      path: `/ilink/bot/get_qrcode_status?qrcode=${encodeURIComponent(session.qrcode)}`,
+      method: "GET",
+      headers: { "iLink-App-ClientVersion": "1" },
+      timeout: 40000, // 35s iLink long-poll + 5s buffer
+    };
+
+    const iReq = https.request(options, (iRes) => {
+      let respBody = "";
+      iRes.on("data", (chunk) => { respBody += chunk; });
+      iRes.on("end", () => {
+        try {
+          const data = JSON.parse(respBody);
+          const status = data.status || "wait";
+
+          if (status === "confirmed") {
+            // Login successful — save account files and restart gateway
+            activeQrSessions.delete(parsed.sessionKey);
+            try {
+              const accountId = saveWeixinAccount(data);
+              log("[微信] 扫码登录成功: " + accountId);
+              jsonResponse(res, 200, { status: "confirmed", accountId });
+            } catch (err) {
+              log("[微信] 账号保存失败: " + err.message);
+              jsonResponse(res, 500, { status: "error", error: "账号保存失败: " + err.message });
+            }
+            return;
+          }
+
+          if (status === "expired") {
+            activeQrSessions.delete(parsed.sessionKey);
+            jsonResponse(res, 200, { status: "expired" });
+            return;
+          }
+
+          // "wait" or "scaned" — return as-is
+          jsonResponse(res, 200, { status });
+        } catch {
+          // Parse error — treat as still waiting
+          jsonResponse(res, 200, { status: "wait" });
+        }
+      });
+    });
+    iReq.on("error", () => {
+      // Network error — client will retry
+      jsonResponse(res, 200, { status: "wait" });
+    });
+    iReq.on("timeout", () => {
+      iReq.destroy();
+      // Long-poll timeout — no one scanned yet, return wait
+      jsonResponse(res, 200, { status: "wait" });
+    });
+    iReq.end();
+  });
+}
+
+// ── End WeChat QR Login ─────────────────────────────────────────────────
 
 function handleApiConfig(req, res) {
   const configPath = path.join(DATA_DIR, ".openclaw", "openclaw.json");
@@ -1260,6 +1516,8 @@ const server = http.createServer((req, res) => {
     return handleApiUpdate(req, res);
   if (pathname === "/api/update/status") return handleApiUpdateStatus(res);
   if (pathname === "/api/openclaw-check") return handleApiOpenclawCheck(res);
+  if (pathname === "/api/weixin/qr-start") return handleApiWeixinQrStart(req, res);
+  if (pathname === "/api/weixin/qr-poll") return handleApiWeixinQrPoll(req, res);
 
   const filePath = path.join(UI_DIR, pathname === "/" ? "index.html" : pathname);
   if (serveStatic(res, filePath)) return;

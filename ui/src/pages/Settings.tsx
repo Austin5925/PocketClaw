@@ -1,5 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
 import { UpdateChecker } from "../components/UpdateChecker";
 import { useConfig } from "../hooks/useConfig";
 import { useGatewayConnection } from "../hooks/GatewayContext";
@@ -92,8 +93,6 @@ const CHANNEL_DEFS: ChannelDef[] = [
     description: "微信 ClawBot 官方插件（扫码登录，无需公网）",
     fields: [],
     tutorialUrl: "https://weixin.qq.com",
-    experimental: true,
-    experimentalNote: "开发中，暂不支持",
   },
 ];
 
@@ -233,6 +232,239 @@ function ChannelCard({ channel, config, onSave, saving }: ChannelCardProps) {
                 : "启用"
               : "保存"}
         </button>
+        {channel.tutorialUrl && (
+          <a
+            href={channel.tutorialUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-indigo-600 hover:underline dark:text-indigo-400"
+          >
+            查看教程 &rarr;
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  WeChat QR login card                                              */
+/* ------------------------------------------------------------------ */
+
+type WeixinStatus = "idle" | "loading" | "scanning" | "scaned" | "confirmed" | "expired" | "error";
+
+interface WeixinLoginCardProps {
+  channel: ChannelDef;
+  config: Record<string, unknown> | null;
+}
+
+function WeixinLoginCard({ channel, config }: WeixinLoginCardProps) {
+  const channelCfg = (config?.channels as Record<string, Record<string, unknown>> | undefined)?.[
+    channel.id
+  ];
+  const isConfigured = Boolean(channelCfg?.enabled);
+
+  const [status, setStatus] = useState<WeixinStatus>("idle");
+  const [qrContent, setQrContent] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const pollingRef = useRef(false);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      pollingRef.current = false;
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  const pollStatus = useCallback(async (key: string) => {
+    pollingRef.current = true;
+    while (pollingRef.current) {
+      const controller = new AbortController();
+      abortRef.current = controller;
+      try {
+        const res = await fetch("/api/weixin/qr-poll", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionKey: key }),
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          pollingRef.current = false;
+          setStatus("error");
+          setErrorMsg("轮询失败");
+          return;
+        }
+        const data = (await res.json()) as { status: string; accountId?: string; error?: string };
+        if (data.status === "confirmed") {
+          pollingRef.current = false;
+          setStatus("confirmed");
+          showToast("微信已连接！", "success");
+          return;
+        }
+        if (data.status === "expired") {
+          pollingRef.current = false;
+          setStatus("expired");
+          return;
+        }
+        if (data.status === "scaned") {
+          setStatus("scaned");
+        }
+        // "wait" — loop continues, next iteration sends another long-poll
+      } catch (err) {
+        if ((err as Error).name === "AbortError") {
+          pollingRef.current = false;
+          return;
+        }
+        // Network error — retry after brief delay
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    }
+  }, []);
+
+  const startLogin = useCallback(async () => {
+    setStatus("loading");
+    setErrorMsg(null);
+    try {
+      const res = await fetch("/api/weixin/qr-start", { method: "POST" });
+      if (!res.ok) {
+        const err = (await res.json()) as { error?: string };
+        setStatus("error");
+        setErrorMsg(err.error || "获取二维码失败");
+        return;
+      }
+      const data = (await res.json()) as { sessionKey: string; qrcodeContent: string };
+      setQrContent(data.qrcodeContent);
+      setStatus("scanning");
+      void pollStatus(data.sessionKey);
+    } catch {
+      setStatus("error");
+      setErrorMsg("无法连接服务器");
+    }
+  }, [pollStatus]);
+
+  const cancelLogin = useCallback(() => {
+    pollingRef.current = false;
+    abortRef.current?.abort();
+    setStatus("idle");
+    setQrContent(null);
+  }, []);
+
+  const statusText: Record<WeixinStatus, string> = {
+    idle: "",
+    loading: "正在获取二维码...",
+    scanning: "请使用微信扫描左侧二维码",
+    scaned: "已扫码，请在微信中确认",
+    confirmed: "微信已连接！",
+    expired: "二维码已过期",
+    error: errorMsg || "出现错误",
+  };
+
+  const showQr = status === "scanning" || status === "scaned";
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+      {/* Header */}
+      <div className="mb-1 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center">{channel.icon}</span>
+          <h4 className="font-semibold text-gray-900 dark:text-gray-100">{channel.name}</h4>
+          {isConfigured || status === "confirmed" ? (
+            <span className="text-lg text-green-500" title="已配置">&#x2705;</span>
+          ) : (
+            <span className="text-lg text-yellow-500" title="未配置">&#x26A0;&#xFE0F;</span>
+          )}
+        </div>
+      </div>
+      <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">{channel.description}</p>
+
+      {/* QR Code display */}
+      {showQr && qrContent && (
+        <div className="mb-4 flex items-start gap-4">
+          <div
+            className={`flex-shrink-0 rounded-lg border border-gray-200 bg-white p-2 dark:border-gray-600 ${
+              status === "scaned" ? "opacity-50" : ""
+            }`}
+          >
+            <QRCodeSVG value={qrContent} size={180} />
+          </div>
+          <div className="flex flex-col justify-center pt-2">
+            <p className={`text-sm font-medium ${
+              status === "scaned"
+                ? "text-amber-600 dark:text-amber-400"
+                : "text-gray-700 dark:text-gray-300"
+            }`}>
+              {statusText[status]}
+            </p>
+            <p className="mt-1 text-xs text-gray-400">
+              需要 iOS 微信 8.0.70+ 或 Android 最新版
+            </p>
+            <button
+              onClick={cancelLogin}
+              className="mt-3 self-start text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Success state */}
+      {status === "confirmed" && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 dark:bg-emerald-900/20">
+          <span className="text-emerald-600">&#x2714;</span>
+          <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+            {statusText.confirmed}
+          </span>
+        </div>
+      )}
+
+      {/* Error state */}
+      {status === "error" && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 dark:bg-red-900/20">
+          <p className="text-sm text-red-600 dark:text-red-400">{errorMsg}</p>
+        </div>
+      )}
+
+      {/* Expired state */}
+      {status === "expired" && (
+        <div className="mb-3 rounded-lg bg-amber-50 px-3 py-2 dark:bg-amber-900/20">
+          <p className="text-sm text-amber-600 dark:text-amber-400">{statusText.expired}</p>
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="mt-3 flex items-center justify-between">
+        {status === "idle" && (
+          <button
+            onClick={() => void startLogin()}
+            className="rounded-lg bg-[#07C160] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#06AD56]"
+          >
+            {isConfigured ? "重新登录" : "扫码登录"}
+          </button>
+        )}
+        {status === "loading" && (
+          <button disabled className="rounded-lg bg-gray-400 px-4 py-2 text-sm font-medium text-white opacity-60">
+            获取中...
+          </button>
+        )}
+        {(status === "expired" || status === "error") && (
+          <button
+            onClick={() => void startLogin()}
+            className="rounded-lg bg-[#07C160] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#06AD56]"
+          >
+            {status === "expired" ? "重新生成" : "重试"}
+          </button>
+        )}
+        {status === "confirmed" && (
+          <button
+            onClick={() => { setStatus("idle"); }}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700"
+          >
+            重新登录
+          </button>
+        )}
         {channel.tutorialUrl && (
           <a
             href={channel.tutorialUrl}
@@ -880,15 +1112,23 @@ export function Settings() {
                   聊天平台
                 </h2>
                 <div className="space-y-4">
-                  {CHANNEL_DEFS.map((ch) => (
-                    <ChannelCard
-                      key={ch.id}
-                      channel={ch}
-                      config={config as Record<string, unknown> | null}
-                      onSave={(channelId, values) => void handleChannelSave(channelId, values)}
-                      saving={channelSaving}
-                    />
-                  ))}
+                  {CHANNEL_DEFS.map((ch) =>
+                    ch.id === "openclaw-weixin" ? (
+                      <WeixinLoginCard
+                        key={ch.id}
+                        channel={ch}
+                        config={config as Record<string, unknown> | null}
+                      />
+                    ) : (
+                      <ChannelCard
+                        key={ch.id}
+                        channel={ch}
+                        config={config as Record<string, unknown> | null}
+                        onSave={(channelId, values) => void handleChannelSave(channelId, values)}
+                        saving={channelSaving}
+                      />
+                    ),
+                  )}
                 </div>
               </section>
             )}
