@@ -159,11 +159,50 @@ func main() {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
-	select {
-	case <-sigCh:
-	case <-gatewayExited:
+	// Gateway restart loop: when OpenClaw exits cleanly (e.g. channels/plugins
+	// config change triggers "supervisor restart"), re-spawn the gateway.
+	// Non-zero exits or user signals cause a full shutdown.
+	restartCount := 0
+	const maxRestarts = 5
+	for {
+		select {
+		case <-sigCh:
+			goto shutdown
+		case err := <-gatewayExited:
+			if err != nil || restartCount >= maxRestarts {
+				if err != nil {
+					logMsg("AI 引擎异常退出: " + err.Error())
+				} else {
+					logMsg("AI 引擎重启次数过多，停止运行")
+				}
+				goto shutdown
+			}
+			// Clean exit — likely a config-triggered restart (channels, plugins, etc.)
+			restartCount++
+			logMsg("[gateway] AI 引擎正在重启...")
+			gatewayCmd = exec.Command(nodeBin, openclawEntry, "gateway", "--port", gatewayPort, "--allow-unconfigured")
+			gatewayCmd.Dir = baseDir
+			gatewayCmd.Stdout = logFile
+			gatewayCmd.Stderr = logFile
+			gatewayCmd.Env = append(os.Environ(),
+				"OPENCLAW_HOME="+filepath.Join(baseDir, "data", ".openclaw"),
+				"OPENCLAW_SKIP_BROWSER_CONTROL_SERVER=1",
+				"OPENCLAW_DISABLE_BONJOUR=1",
+				"OPENCLAW_SKIP_CANVAS_HOST=1",
+			)
+			if err := gatewayCmd.Start(); err != nil {
+				logMsg("AI 引擎重启失败: " + err.Error())
+				goto shutdown
+			}
+			gatewayExited = make(chan error, 1)
+			go func() {
+				gatewayExited <- gatewayCmd.Wait()
+			}()
+			logMsg("[gateway] AI 引擎已重启")
+		}
 	}
 
+shutdown:
 	logMsg("正在关闭...")
 	if gatewayCmd.Process != nil {
 		gatewayCmd.Process.Kill()

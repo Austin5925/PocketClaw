@@ -371,9 +371,13 @@ function WeixinLoginCard({ channel, config }: WeixinLoginCardProps) {
           <span className="flex h-6 w-6 items-center justify-center">{channel.icon}</span>
           <h4 className="font-semibold text-gray-900 dark:text-gray-100">{channel.name}</h4>
           {isConfigured || status === "confirmed" ? (
-            <span className="text-lg text-green-500" title="已配置">&#x2705;</span>
+            <span className="text-lg text-green-500" title="已配置">
+              &#x2705;
+            </span>
           ) : (
-            <span className="text-lg text-yellow-500" title="未配置">&#x26A0;&#xFE0F;</span>
+            <span className="text-lg text-yellow-500" title="未配置">
+              &#x26A0;&#xFE0F;
+            </span>
           )}
         </div>
       </div>
@@ -390,16 +394,16 @@ function WeixinLoginCard({ channel, config }: WeixinLoginCardProps) {
             <QRCodeSVG value={qrContent} size={180} />
           </div>
           <div className="flex flex-col justify-center pt-2">
-            <p className={`text-sm font-medium ${
-              status === "scaned"
-                ? "text-amber-600 dark:text-amber-400"
-                : "text-gray-700 dark:text-gray-300"
-            }`}>
+            <p
+              className={`text-sm font-medium ${
+                status === "scaned"
+                  ? "text-amber-600 dark:text-amber-400"
+                  : "text-gray-700 dark:text-gray-300"
+              }`}
+            >
               {statusText[status]}
             </p>
-            <p className="mt-1 text-xs text-gray-400">
-              需要 iOS 微信 8.0.70+ 或 Android 最新版
-            </p>
+            <p className="mt-1 text-xs text-gray-400">需要 iOS 微信 8.0.70+ 或 Android 最新版</p>
             <button
               onClick={cancelLogin}
               className="mt-3 self-start text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -445,7 +449,10 @@ function WeixinLoginCard({ channel, config }: WeixinLoginCardProps) {
           </button>
         )}
         {status === "loading" && (
-          <button disabled className="rounded-lg bg-gray-400 px-4 py-2 text-sm font-medium text-white opacity-60">
+          <button
+            disabled
+            className="rounded-lg bg-gray-400 px-4 py-2 text-sm font-medium text-white opacity-60"
+          >
             获取中...
           </button>
         )}
@@ -459,7 +466,9 @@ function WeixinLoginCard({ channel, config }: WeixinLoginCardProps) {
         )}
         {status === "confirmed" && (
           <button
-            onClick={() => { setStatus("idle"); }}
+            onClick={() => {
+              setStatus("idle");
+            }}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700"
           >
             重新登录
