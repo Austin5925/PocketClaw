@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.44] - 2026-04-11
+
+### Fixed
+
+- **微信扫码成功但不回复消息 (P0)**: 根因通过查阅插件源码确认。插件通过监听 `channels["openclaw-weixin"].channelConfigUpdatedAt` 字段变更来触发 channel 重载（插件自带的 `triggerWeixinChannelReload` 函数就是这么做的）。之前 `saveWeixinAccount` 只写 `{ enabled: true }`，首次登录时 chokidar 能检测到 channels 从无到有的变化并触发 restart，但**重复登录时配置值没变**，chokidar 不触发，插件不重载，新账号不被使用。修复：每次登录都写入 `channelConfigUpdatedAt: new Date().toISOString()`，强制触发配置变更
+
+### 调试参考
+
+- 插件自身的日志写入 `/tmp/openclaw/openclaw-YYYY-MM-DD.log`（使用 `fs.appendFileSync` 直写文件，不经过 stdout），所以 `data/pocketclaw.log` 不包含插件级调试信息。排查微信问题时需同时查看两个日志文件
+
 ## [1.2.43] - 2026-04-11
 
 ### Fixed

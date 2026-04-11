@@ -500,7 +500,11 @@ function saveWeixinAccount(data) {
     );
   }
 
-  // 4. Enable channel in user config + trigger gateway restart
+  // 4. Enable channel in user config + trigger channel reload.
+  // Always bump channelConfigUpdatedAt — the plugin's own triggerWeixinChannelReload
+  // does this to force chokidar to detect a config change and restart the channel.
+  // Without this, a repeat QR login (when config already has { enabled: true })
+  // produces no config change → no restart → plugin doesn't pick up the new account.
   const configPath = path.join(DATA_DIR, ".openclaw", "openclaw.json");
   let userConfig = {};
   try { userConfig = JSON.parse(fs.readFileSync(configPath, "utf-8")); } catch { /* ok */ }
@@ -508,6 +512,7 @@ function saveWeixinAccount(data) {
   userConfig.channels["openclaw-weixin"] = {
     ...userConfig.channels["openclaw-weixin"],
     enabled: true,
+    channelConfigUpdatedAt: new Date().toISOString(),
   };
   fs.writeFileSync(configPath, JSON.stringify(userConfig, null, 2), { encoding: "utf-8", mode: 0o600 });
   syncInternalConfig(userConfig);
