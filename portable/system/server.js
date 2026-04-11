@@ -565,10 +565,11 @@ function handleApiWeixinQrPoll(req, res) {
             activeQrSessions.delete(parsed.sessionKey);
             try {
               const accountId = saveWeixinAccount(data);
-              log("[微信] 扫码登录成功: " + accountId);
+              console.log(`[口袋龙虾 UI] [微信] 扫码登录成功: ${accountId}`);
               jsonResponse(res, 200, { status: "confirmed", accountId });
             } catch (err) {
-              log("[微信] 账号保存失败: " + err.message);
+              console.error(`[口袋龙虾 UI] [微信] 账号保存失败: ${err.message}`);
+              console.error(err.stack);
               jsonResponse(res, 500, { status: "error", error: "账号保存失败: " + err.message });
             }
             return;

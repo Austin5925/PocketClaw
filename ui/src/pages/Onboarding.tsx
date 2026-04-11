@@ -281,7 +281,6 @@ export function Onboarding() {
               <ChannelCard
                 name="微信"
                 icon={<WeChatIcon className="h-6 w-6 shrink-0 text-green-500" />}
-                badge="实验性功能"
                 expanded={expandedChannel === "openclaw-weixin"}
                 onToggle={() =>
                   setExpandedChannel(
@@ -289,15 +288,14 @@ export function Onboarding() {
                   )
                 }
               >
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={channels["openclaw-weixin"]?.enabled ?? false}
-                    onChange={(e) => toggleChannel("openclaw-weixin", "enabled", e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  启用微信 ClawBot（需在 OpenClaw 控制台扫码配对）
-                </label>
+                <p className="text-sm text-gray-600">
+                  微信 ClawBot（腾讯官方插件，零封号风险）。进入设置页的
+                  <span className="font-medium"> 频道接入 </span>
+                  Tab，点击 <span className="font-medium">扫码登录</span> 即可用手机微信扫码配对。
+                </p>
+                <p className="mt-2 text-xs text-gray-500">
+                  需要 iOS 微信 8.0.70+ 或 Android 最新版。
+                </p>
               </ChannelCard>
             </div>
 

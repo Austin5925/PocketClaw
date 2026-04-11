@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.43] - 2026-04-11
+
+### Fixed
+
+- **微信扫码成功后"轮询失败" (P0)**: 根因是 `log()` 函数只在 `--supervisor` 模式内定义（server.js line 1588），但 `handleApiWeixinQrPoll` 在所有模式下都会调用它。Mac Go 启动器模式下 server.js 不是 supervisor，调用 `log()` 抛出 `ReferenceError`，被 try/catch 捕获后返回 500，前端显示"轮询失败"。修复：改用 `console.log`/`console.error`（匹配已有的 `[口袋龙虾 UI]` 日志风格）
+- **引导页微信说明过时**: Onboarding 第三步的微信卡片仍写着"需在 OpenClaw 控制台扫码配对"，已更新为指向设置页的扫码登录流程
+
 ## [1.2.42] - 2026-04-11
 
 ### Fixed
